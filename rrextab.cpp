@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <string>
 #include <map>
+#include <cstdint>
 
 struct rrex_key
 {
-	int a,b;
+	int64_t a,b;
 	//if rrex_key X is included in or equal to rrex_key Y then X <= Y
 	bool operator<(const struct rrex_key s) const
 	{
@@ -26,7 +27,7 @@ struct rrex_key
 
 struct rrex_data
 {
-	int reduce = -1;
+	int64_t reduce = -1;
 	std::map<rrex_key, rrex_data > *next = nullptr;
 };
 
@@ -89,7 +90,7 @@ struct circ_buf_t
 	}
 	int operator[](size_t i)
 	{
-		return s+1+i & 0x3ff; /*s+1+i >= sz ? buf[s+1+i-sz] : buf[s+1+i];*/
+		return buf[s+1+i & 0x3ff]; /*s+1+i >= sz ? buf[s+1+i-sz] : buf[s+1+i];*/
 	}
 	size_t size()
 	{ return sz_; }
@@ -153,23 +154,24 @@ int flatten_tree(rrex_tree *root, int *buf )
 	}
 }
 
-int rrex_insert(std::vector<rrex_key> &&rrex, int reduce=0 )
+int rrex_insert(std::vector<rrex_key> &&rrex, int64_t reduce=0 )
 { return rrex_insert(rrex, reduce ); }
 
 struct match_shared_t
 {
-	int *ret;
+	int64_t *ret;
 	rrex_tree *root;
 	struct circ_buf_t *buf;
-	std::istream *is;	
+	std::istream *is;
+	void *(**lang_callbacks)(match_shared_t &, void *, void *);
 };
 
-void match(match_shared_t &m, rrex_tree *next, int reduce, int idx=0 )
+void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int nonterminals=0 )
 {
-
 	//if( next != nullptr )
 	//{
 		//read from tape:
+	void *pval = NULL, *sval = NULL;
 	match_start:
 
 		int c;
@@ -181,9 +183,12 @@ void match(match_shared_t &m, rrex_tree *next, int reduce, int idx=0 )
 				exit(EXIT_FAILURE);
 			m.buf->push_back(m.is->get());
 			c = m.buf->back();
+			idx++;
 		}
 		else
-			c = (*m.buf)[idx];	
+			c = (*m.buf)[idx++];	
+		
+		std::cout << '(' << c << ',' << idx << ',' << m.buf->size() << ')';
 
 		int to_check = 0;
 
@@ -197,26 +202,34 @@ void match(match_shared_t &m, rrex_tree *next, int reduce, int idx=0 )
 			{
 				if( it->second.next != nullptr )
 				{
-					if( to_check == 1 )
+					std::cout << 'n';
+					if( to_check == 1 && (it->second.reduce < 0) )
 					{
+						std::cout << 'o';
 						next = it->second.next;
 						reduce = -1;
-						idx++;
+						//std::cout << '+';
+						//idx++;
 						goto match_start;
 					}
 					std::cout << "{ ";
-					match(m, it->second.next, -1, idx+1 );
+					match(m, it->second.next, -1, idx/*+1*/ );
 					std::cout << "} ";
 				}
 				if( it->second.reduce >= 0 )
-				{	
+				{
+					std::cout << 'r';	
 					if( idx > m.ret[0] )
 					{
+						std::cout << 'm';
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
+						if( nonterminals == 2 )
+							nonterminals = 1;
 					}
 					if( to_check == 1 )
 					{
+						std::cout << 'o';
 						next = m.root;
 						reduce = it->second.reduce;
 						goto match_start;
@@ -225,38 +238,68 @@ void match(match_shared_t &m, rrex_tree *next, int reduce, int idx=0 )
 					match(m, m.root, it->second.reduce, idx );
 					std::cout << "} ";
 				}
+				std::cout << '-';
 				to_check--;
 			}
 		}
+		/*if( nonterminals & (m.ret[1] >= 0) )
+		{
+			reduce = m.ret[1];
+			if( m.ret[1] & 0x2000000000000000 )
+				sval = match(m, m.root, m.ret[1], idx, true );
+			if( reduce & 0x4000000000000000 )
+			{
+				//do callback
+				pval = (m.lang_callbacks[m.ret[1] & 0xbfffffffffffffff ])(m, pval, sval );
+				sval = NULL;
+			}
+			if( reduce != m.ret[1] )
+			{
+				reduce = m.ret[1];
+				nonterminals = 2;
+				goto match_start;
+			}
+		}*/
 
+	return pval;
 	//}
 
 }
 
-void match(int *ret, rrex_tree *root, rrex_tree *next, circ_buf_t &buf, std::istream &is, int reduce=-1, int idx=0 )
+// p -> p*n
+// p -> n
+// s -> s+p //now the problem is how you actually forbid that rule from happening?
+// s -> p   // see? you don't want to apply that rule after s+ right?
+
+void *print_id(match_shared_t &m, void *pval, void *sval )
 {
-	match_shared_t m{ret, root, &buf, &is };
+	std::cout << (*m.buf)[0] << std::endl;
+	return NULL;
+}
+
+void match(int64_t *ret, rrex_tree *root, rrex_tree *next, circ_buf_t &buf, std::istream &is, int64_t reduce=-1, int idx=0 )
+{
+	void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {print_id};
+	match_shared_t m{ret, root, &buf, &is, lang_callbacks };
 	match(m, root, reduce, idx );
 }
 
+
+#define DO_CALLBACK 0x4000000000000000 
+#define DO_RECURSION 0x2000000000000000
+
+//#define ID (DO_CALLBACK | 0)
+#define ID 256
+
 int main()
 {
-	/*std::vector<rrex_key> test = { {'a','z'}, {'A','z'}, {'0','9'}, {' ', 'z'} };
-	std::sort(test.begin(), test.end() );
-	for(auto i : test )
-		i.print();
-	std::vector<rrex_key> rrex_expr = {{'a','z'}};
-	rrex_insert(rrex_expr, 256 );
-	rrex_expr = {{'a','y'}, {'A','z'}};
-	rrex_insert(rrex_expr, 257 );
-	rrex_insert({{256,256}, {'a','z'}}, 256 );*/
-	rrex_insert({{'_','_'}}, 256 );
-	rrex_insert({{'a','z'}}, 256 );
-	rrex_insert({{'A','Z'}}, 256 );
-	rrex_insert({{256,256}, {'a','z'}}, 256 );
-	rrex_insert({{256,256}, {'A','Z'}}, 256 );
-	rrex_insert({{256,256}, {'0','9'}}, 256 );
-	rrex_insert({{256,256}, {'_','_'}}, 256 );
+	rrex_insert({{'_','_'}}, ID );
+	rrex_insert({{'a','z'}}, ID );
+	rrex_insert({{'A','Z'}}, ID );
+	rrex_insert({{ID, ID}, {'a','z'}}, ID );
+	rrex_insert({{ID, ID}, {'A','Z'}}, ID );
+	rrex_insert({{ID, ID}, {'0','9'}}, ID );
+	rrex_insert({{ID, ID}, {'_','_'}}, ID );
 	rrex_insert({{'u','u'}, {'v','v'}, {'a','a'}, {'l','l'}, {' ', ' '}}, 257 );
 	rrex_insert({{'r','r'}, {'e','e'}, {'f','f'}, {' ',' '}}, 258 );
 	rrex_insert({{'s','s'}, {'t','t'}, {'r','r'}, {'u','u'}, {'c','c'}, {'t','t'}, {' ',' '}}, 259 );
@@ -264,9 +307,9 @@ int main()
 	rrex_insert({{'e','e'}, {'n','n'}, {'u','u'}, {'m','m'}, {' ',' '}}, 261 );
 	rrex_insert({{'c','c'}, {'o','o'}, {'n','n'}, {'s','s'}, {'t','t'}, {' ',' '}}, 262 );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	int ret[2]={-1,-1};
+	int64_t ret[2]={-1,-1};
 	match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin );
-	std::cout << "len:" << ret[0] << ", reduce:" << ret[1] << std::endl;
+	std::cout << "\nlen:" << ret[0] << ", reduce:" << ret[1] << std::endl;
 	std::cout << std::endl;
 	return 0;
 }
