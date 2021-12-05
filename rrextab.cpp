@@ -88,7 +88,7 @@ circ_buf_t matchbuf;
 rrex_tree rrex_main_tree;
 rrex_tree *rrex_main_tree_ptr = &rrex_main_tree;
 
-int rrex_insert(std::vector<rrex_key> &rrex, int reduce=0 )
+int rrex_insert(std::vector<rrex_key> &rrex, int64_t reduce=0 )
 {
 
 	std::map<rrex_key, rrex_data > **next = &rrex_main_tree_ptr;
@@ -152,9 +152,9 @@ struct match_shared_t
 	void *(**lang_callbacks)(match_shared_t &, void *, void *);
 };
 
-#define DO_CALLBACK 	0x40000000 
-#define DO_RECURSION 	0x20000000
-#define REDMASK		0x1fffffff
+#define DO_CALLBACK 	0x80000000 
+#define DO_RECURSION 	0x40000000
+#define REDMASK		0x3fffffff
 
 void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int mlen=0, int nonterminals=0 )
 {
@@ -204,7 +204,7 @@ void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int m
 					match(m, it->second.next, -1, idx, mlen );
 					std::cout << "} ";
 				}
-				if( it->second.reduce >= 0 )
+				if( it->second.reduce >= (int64_t)0 )
 				{
 					if( mlen > m.ret[0] )
 					{
@@ -240,12 +240,12 @@ void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int m
 			{
 				//do callback
 				pval = (m.lang_callbacks[((reduce & REDMASK)-256<<1)+1])(m, pval, sval );
-				sval = NULL;
+				//sval = NULL;
 			}
 			if( reduce != (m.ret[1] & REDMASK) )
 			{
 				reduce = m.ret[1] & REDMASK;
-				next = m.root; //?
+				//next = m.root; //?
 				nonterminals = 2;
 				goto match_start;
 			}
@@ -291,15 +291,16 @@ void match(int64_t *ret, rrex_tree *root, rrex_tree *next, circ_buf_t &buf, std:
 //#define ID (DO_CALLBACK | 0)
 //#define ID 256
 #define START 256
-#define NUM 257
-#define SUM 258
+#define L_SUM 257
+#define NUM 258
+#define SUM 259
 
 int main()
 {
-	rrex_insert({{START,START}, {'0','9'}}, DO_CALLBACK | NUM );
+	rrex_insert({{START,L_SUM}, {'0','9'}}, DO_CALLBACK | NUM );
 	rrex_insert({{DO_CALLBACK | NUM, DO_CALLBACK | NUM}, {'0','9'}}, DO_CALLBACK | NUM );
 	rrex_insert({{NUM,SUM}, {'+','+'} }, DO_RECURSION | START );
-	rrex_insert({{NUM,NUM}, {'+','+'}, {NUM,NUM}}, DO_RECURSION | SUM );
+	rrex_insert({{NUM,NUM}, {'+','+'}, {NUM,NUM}}, DO_CALLBACK | DO_RECURSION | SUM );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	int64_t ret[3]={-1,-1,-1};
 	match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin, START );
