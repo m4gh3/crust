@@ -302,9 +302,10 @@ void *make_sum(match_shared_t &m, void *pval, void *sval )
 	return pval;
 }
 
-void match(int64_t *ret, rrex_tree *root, rrex_tree *next, circ_buf_t &buf, std::istream &is, int64_t lreduce=-1, int idx=0 )
+void match(rrex_tree *root, circ_buf_t &buf, std::istream &is, int64_t lreduce=-1, int idx=0 )
 {
 	void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {make_num, make_sum};
+	int64_t ret[2] = {-1,-1};
 	match_shared_t m{ret, root, &buf, &is, lang_callbacks };
 	match(m, root, lreduce, -1, idx );
 }
@@ -338,9 +339,10 @@ int main()
 	/*rrex_insert({{NUM, SUM}, {'+','+'}}, L_SUM );
 	rrex_insert({{L_SUM,L_SUM}, {NUM,NUM}}, SUM );*/
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	int64_t ret[3]={-1,-1};
-	match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin, START );
-	std::cout << "\nlen:" << ret[0] << ", reduce:" << ret[1] << std::endl;
+	//int64_t ret[3]={-1,-1};
+	//match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin, START );
+	match(rrex_main_tree_ptr, matchbuf, std::cin, START );
+	//std::cout << "\nlen:" << ret[0] << ", reduce:" << ret[1] << std::endl;
 	std::cout << std::endl;
 	return 0;
 }
