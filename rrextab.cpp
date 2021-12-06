@@ -149,7 +149,7 @@ struct match_shared_t
 	rrex_tree *root;
 	struct circ_buf_t *buf;
 	std::istream *is;
-	void *(**lang_callbacks)(match_shared_t &, void *, void *);
+	//void *(**lang_callbacks)(match_shared_t &, void *, void *);
 };
 
 #define DO_CALLBACK 	0x80000000 
@@ -158,13 +158,8 @@ struct match_shared_t
 
 void *lang_callbacks(int64_t, match_shared_t &, void *, void *);
 
-void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce, int idx=0 )
-{
-	//if( next != nullptr )
-	//{
-		//read from tape:
-	//void *lval = NULL, *rval = NULL;
-	
+void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce, int idx=0, int offset=0 )
+{	
 	match_start:
 
 		int64_t c;
@@ -206,14 +201,14 @@ void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce,
 					}
 					std::cout << "{ ";
 					if( rreduce >= 0 )
-						match(m, it->second.next, rreduce, -1, idx );
+						match(m, it->second.next, rreduce, -1, idx, offset );
 					else
-						match(m, it->second.next, -1, -1, idx );
+						match(m, it->second.next, -1, -1, idx, offset );
 					std::cout << "} ";
 				}
 				if( it->second.reduce >= 0 )
 				{
-					if( idx > m.ret[0] )
+					if( idx+offset > m.ret[0] )
 					{
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
@@ -232,64 +227,20 @@ void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce,
 					}
 					std::cout << "{ ";
 					if( rreduce >=0 )
-						match(m, m.root, rreduce, it->second.reduce, idx );
+						match(m, m.root, rreduce, it->second.reduce, idx, offset );
 					else
-						match(m, m.root, it->second.reduce, -1, idx );
+						match(m, m.root, it->second.reduce, -1, idx, offset );
 					std::cout << "} ";
 				}
 				to_check--;
 			}
 		}
-		/*if(nonterminals && (m.ret[1] >= 0) )
-		{
-			lreduce = m.ret[1];
-			if( (lreduce & DO_CALLBACK) /*&& ( m.lang_callbacks[lreduce & REDMASK] != NULL )*//* )
-			{
-				//lval = (m.lang_callbacks[lreduce & REDMASK])(m, lval, rval );
-				lval = lang_callbacks(lreduce & REDMASK, m, lval, rval );
-				rval = NULL;
-			}
-			m.buf->pop_head(m.ret[2]);
-			idx = 0;
-			if( lreduce & DO_RECURSION )
-			{
-				rval = match(m, m.root, m.ret[1] & REDMASK, 0, mlen, true );
-				rreduce = m.ret[1];
-				//lreduce &= REDMASK;
-			}
-			//m.ret[0] = -1; m.ret[1] = -1; m.ret[2] = -1;
-			if( lreduce == (lreduce & REDMASK) )	
-				if( rreduce == -1 )
-					return lval;
-				else
-					rreduce &= REDMASK;
-			else
-			{
-				lreduce &= REDMASK; 
-				if( rreduce != -1 )
-					rreduce &= REDMASK;
-			}
-			next = m.root;
-			goto match_start;
-		}*/
-
-	//}
-
-}
-
-void *print_id(match_shared_t &m, void *pval, void *sval )
-{
-	std::cout << "identfier: ";
-	for(int i=0; i < m.ret[2]; i++ )
-		std::cout << (char)(*m.buf)[i];
-	std::cout << std::endl;
-	return NULL;
 }
 
 void *make_num(match_shared_t &m, void *pval, void *sval )
 {
 	int *retval = new int(0);
-	for(int i=0; i < m.ret[2]; i++ )
+	for(int i=0; i < m.ret[0]; i++ )
 		((*retval) *= 10)+=((*m.buf)[i]-'0');
 	std::cout << (*retval) << std::endl;
 	return retval;
@@ -302,46 +253,89 @@ void *make_sum(match_shared_t &m, void *pval, void *sval )
 	return pval;
 }
 
-void match(rrex_tree *root, circ_buf_t &buf, std::istream &is, int64_t lreduce=-1, int idx=0 )
+void *match(rrex_tree *root, int64_t *ret, circ_buf_t &buf, std::istream &is, int64_t lreduce=-1, int idx=0 )
 {
-	void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {make_num, make_sum};
-	int64_t ret[2] = {-1,-1};
-	match_shared_t m{ret, root, &buf, &is, lang_callbacks };
-	match(m, root, lreduce, -1, idx );
+	//void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {make_num, make_sum};
+	void *lval = NULL; void *rval = NULL;
+	int64_t rreduce = -1;
+	int64_t last_good;
+	//int64_t ret[2] = {0,0};
+	match_shared_t m{ret, root, &buf, &is /*, lang_callbacks*/ };
+	while( lreduce != -1 )
+	{
+		last_good = lreduce /*& REDMASK*/;
+		ret[0] = 0; ret[1] = -1;
+		match(m, root, lreduce, rreduce, idx, rreduce >= 0 );
+		//std::cout << "\nlen:" << ret[0] << ", reduce:" << (ret[1] & REDMASK) << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
+		lreduce = ret[1];
+		if( lreduce >= 0 )
+		{
+			if( lreduce & DO_CALLBACK )
+				lval = lang_callbacks(lreduce & REDMASK, m, lval, rval );
+			buf.pop_head(m.ret[0]);
+			ret[0] = 0; ret[1] = -1;
+			rreduce = -1;
+			if( lreduce & DO_RECURSION )
+			{
+				rval = match(root, ret, buf, is, lreduce & REDMASK, 0 );
+				rreduce = ret[1];
+			}
+			lreduce &= REDMASK;
+		}
+	}
+	ret[1] = last_good; //but this is useless
+	return lval;
 }
+
+//#define ID (DO_CALLBACK | 0)
+//#define ID 256
+/*#define START 256
+#define L_SUM 257
+#define R_NUM 258
+#define R_PROD 259
+#define L_NUM 260
+#define L_PROD 261
+#define SUM 262*/
+
+enum
+{
+	START = 256,
+	L_SUM,
+	LL_PROD,
+	R_NUM,
+	R_PROD,
+	L_NUM,
+	L_PROD,
+	SUM	
+};
 
 void *lang_callbacks(int64_t reduce, match_shared_t &m, void *lval, void *rval)
 {
 	switch(reduce)
 	{
-		case 258:
+		case R_NUM:
+		case L_NUM:
 			return make_num(m, lval, rval );
-		case 259:
+		case SUM:
 			return make_sum(m, lval, rval );
 	}
 	return NULL;
 }
 
-//#define ID (DO_CALLBACK | 0)
-//#define ID 256
-#define START 256
-#define L_SUM 257
-#define NUM 258
-#define SUM 259
-
 int main()
 {
-	rrex_insert({{START,L_SUM}, {'0','9'}}, NUM | DO_CALLBACK );
-	//rrex_insert({{L_SUM,L_SUM}, {'0','9'}}, NUM );
-	rrex_insert({{NUM,SUM}, {'+','+'}}, L_SUM | DO_RECURSION );
-	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK );
-	rrex_insert({{L_SUM,L_SUM}, {NUM,NUM}}, SUM );
-	/*rrex_insert({{NUM, SUM}, {'+','+'}}, L_SUM );
-	rrex_insert({{L_SUM,L_SUM}, {NUM,NUM}}, SUM );*/
+	rrex_insert({{START,START}, {'0','9'}}, L_NUM | DO_CALLBACK );
+	rrex_insert({{L_SUM,LL_PROD}, {'0','9'}}, R_NUM | DO_CALLBACK );
+	//rrex_insert({{LL_PROD,LL_PROD}, {'0','9'}}, R_NUM | DO_CALLBACK );
+	rrex_insert({{L_NUM | DO_CALLBACK, L_NUM | DO_CALLBACK}, {'0','9'}}, L_NUM | DO_CALLBACK );
+	rrex_insert({{R_NUM | DO_CALLBACK, R_NUM | DO_CALLBACK}, {'0','9'}}, R_NUM | DO_CALLBACK );
+	rrex_insert({{L_NUM, SUM}, {'+','+'}}, L_SUM | DO_RECURSION );
+	rrex_insert({{L_NUM, L_PROD}, {'*','*'}}, LL_PROD | DO_RECURSION );
+	rrex_insert({{L_SUM,L_SUM}, {R_NUM,R_NUM}}, SUM | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	//int64_t ret[3]={-1,-1};
+	int64_t ret[3]={0,-1};
 	//match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin, START );
-	match(rrex_main_tree_ptr, matchbuf, std::cin, START );
+	match(rrex_main_tree_ptr, ret, matchbuf, std::cin, START );
 	//std::cout << "\nlen:" << ret[0] << ", reduce:" << ret[1] << std::endl;
 	std::cout << std::endl;
 	return 0;
