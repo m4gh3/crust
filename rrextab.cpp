@@ -156,17 +156,21 @@ struct match_shared_t
 #define DO_RECURSION 	0x40000000
 #define REDMASK		0x3fffffff
 
-void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int mlen=0, int nonterminals=0 )
+void *match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int idx=0, int mlen=0 )
 {
 	//if( next != nullptr )
 	//{
 		//read from tape:
-	void *pval = NULL, *sval = NULL;
+	void *lval = NULL, *rval = NULL;
+	int64_t rreduce = -1;
+	
 	match_start:
 
 		int64_t c;
-		if( reduce >= 0 )
-			c = reduce;
+		if( lreduce >= 0 )
+			c = lreduce;
+		else if( rreduce >= 0 )
+			c = rreduce;
 		else if( idx == m.buf->size() )
 		{
 			if( m.buf->is_full() )
@@ -197,27 +201,31 @@ void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int m
 					if( to_check == 1 && (it->second.reduce < 0) )
 					{
 						next = it->second.next;
-						reduce = -1;
+						if( lreduce >= 0 )
+							lreduce = -1;
+						else
+							rreduce = -1;
 						goto match_start;
 					}
 					std::cout << "{ ";
-					match(m, it->second.next, -1, idx, mlen );
+					if( rreduce >= 0 )
+						match(m, it->second.next, rreduce, idx, mlen );
+					else
+						match(m, it->second.next, -1, idx, mlen );
 					std::cout << "} ";
 				}
-				if( it->second.reduce >= (int64_t)0 )
+				if( it->second.reduce >= 0 )
 				{
 					if( mlen > m.ret[0] )
 					{
 						m.ret[0] = mlen;
 						m.ret[1] = it->second.reduce;
 						m.ret[2] = idx;
-						if( nonterminals == 2 )
-							nonterminals = 1;
 					}
 					if( to_check == 1 )
 					{
 						next = m.root;
-						reduce = it->second.reduce;
+						lreduce = it->second.reduce;
 						goto match_start;
 					}
 					std::cout << "{ ";
@@ -227,31 +235,26 @@ void *match(match_shared_t &m, rrex_tree *next, int64_t reduce, int idx=0, int m
 				to_check--;
 			}
 		}
-		if( nonterminals & (m.ret[1] >= 0) )
+		lreduce = m.ret[1];
+		if( (lreduce & DO_CALLBACK) && ( m.lang_callbacks[lreduce & REDMASK] != NULL ) )
 		{
-			reduce = m.ret[1];
-			if( (reduce & DO_CALLBACK) && ( m.lang_callbacks[((reduce & REDMASK)-256<<1)+0] != NULL ) )
-				pval = (m.lang_callbacks[((reduce & REDMASK)-256<<1)+0])(m, pval, sval );
-			m.buf->pop_head(m.ret[2]);
-			idx = 0;
-			if( m.ret[1] & DO_RECURSION )
-				sval = match(m, m.root, m.ret[1] & REDMASK, 0, mlen, true );
-			if( (reduce & DO_CALLBACK) && ( m.lang_callbacks[((reduce & REDMASK)-256<<1)+1] != NULL ) )
-			{
-				//do callback
-				pval = (m.lang_callbacks[((reduce & REDMASK)-256<<1)+1])(m, pval, sval );
-				//sval = NULL;
-			}
-			if( reduce != (m.ret[1] & REDMASK) )
-			{
-				reduce = m.ret[1] & REDMASK;
-				//next = m.root; //?
-				nonterminals = 2;
-				goto match_start;
-			}
+			lval = (m.lang_callbacks[lreduce & REDMASK])(m, lval, rval );
+			rval = NULL;
+		}
+		m.buf->pop_head(m.ret[2]);
+		idx = 0;
+		if( lreduce & DO_RECURSION )
+		{
+			rval = match(m, m.root, m.ret[1] & REDMASK, 0, mlen );
+			rreduce = m.ret[1];
+		}
+		if( rreduce != -1 )
+		{
+			next = m.root;
+			goto match_start;
 		}
 
-	return pval;
+	return lval;
 	//}
 
 }
@@ -285,7 +288,7 @@ void match(int64_t *ret, rrex_tree *root, rrex_tree *next, circ_buf_t &buf, std:
 {
 	void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {NULL, NULL, make_num, NULL, NULL, make_sum };
 	match_shared_t m{ret, root, &buf, &is, lang_callbacks };
-	match(m, root, reduce, idx, 0, 1 );
+	match(m, root, reduce, idx, 0 );
 }
 
 //#define ID (DO_CALLBACK | 0)
