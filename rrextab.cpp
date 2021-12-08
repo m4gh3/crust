@@ -142,7 +142,7 @@ struct match_shared_t
 #define DO_RECURSION 	0x40000000
 #define REDMASK		0x3fffffff
 
-void *lang_callbacks(int64_t, match_shared_t &, circ_buf_t<int64_t, 3 >&, void *, void * );
+void lang_callbacks(int64_t, match_shared_t &, circ_buf_t<int64_t, 3 >&, void *&, void *& );
 
 void match(match_shared_t &m, rrex_tree *next, int idx=0, int offset=0 )
 {	
@@ -226,7 +226,7 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 			last_good = ret[1];
 			//redbuf.push_back(last_good & REDMASK;
 			if( last_good & DO_CALLBACK )
-				lval = lang_callbacks(last_good & REDMASK, m, next_redbuf, lval, rval );
+				lang_callbacks(last_good & REDMASK, m, next_redbuf, lval, rval );
 			else
 			{
 				redbuf.clear();
@@ -237,7 +237,7 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 			if( last_good & DO_RECURSION )
 			{
 				next_redbuf.push_back(last_good & REDMASK);
-				rval = match(root, ret, buf, next_redbuf, lval, is );
+				rval = match(root, ret, buf, next_redbuf, rval, is );
 				redbuf.push_back(ret[1]);
 			}
 		}
@@ -266,7 +266,7 @@ struct lang_val
 };
 
 
-void *lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *lval, void *rval )
+void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
 {
 	switch(reduce)
 	{
@@ -288,16 +288,18 @@ void *lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > 
 				for(int i=0; i < m.ret[0]; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
 				std::cout << (*retval) << std::endl;
-				return lval;
+				//return lval;
 			}
+			break;
 		case L_SUM:
 			{
 				m.redbuf->clear();
 				m.redbuf->push_back(reduce);
 				m.redbuf->push_head(START);
-				((lang_val *)lval)->prec_token = L_SUM;
-				return lval;
+				rval = new lang_val{L_SUM, 0};
+				//return lval;
 			}
+			break;
 		case SUM:
 			{
 				m.redbuf->clear();
@@ -307,10 +309,11 @@ void *lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > 
 				((lang_val *)lval)->value += ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
 				std::cout << ((lang_val *)lval)->value;
-				return lval;
+				//return lval;
 			}
+			break;
 	}
-	return NULL;
+	//return NULL;
 }
 
 int main()
