@@ -277,7 +277,8 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				if( lval != NULL )
 				{
 					m.redbuf->push_head(((lang_val *)lval)->prec_token);
-					lval = new lang_val{((lang_val*)lval)->prec_token, 0 };
+					((lang_val *)lval)->value = 0;
+					//lval = new lang_val{((lang_val*)lval)->prec_token, 0 };
 				}
 				else
 				{
@@ -288,7 +289,6 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				for(int i=0; i < m.ret[0]; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
 				std::cout << (*retval) << std::endl;
-				//return lval;
 			}
 			break;
 		case L_SUM:
@@ -297,7 +297,6 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				m.redbuf->push_back(reduce);
 				m.redbuf->push_head(START);
 				rval = new lang_val{L_SUM, 0};
-				//return lval;
 			}
 			break;
 		case SUM:
@@ -309,11 +308,9 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				((lang_val *)lval)->value += ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
 				std::cout << ((lang_val *)lval)->value;
-				//return lval;
 			}
 			break;
 	}
-	//return NULL;
 }
 
 int main()
