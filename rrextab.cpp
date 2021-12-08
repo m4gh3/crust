@@ -35,55 +35,57 @@ int last_reduce=1;
 
 typedef std::map<rrex_key, rrex_data > rrex_tree;
 
-struct circ_buf_t
+template<typename T, unsigned int pow >  struct circ_buf_t
 {
-	char buf[1024];
-	int s=0, e=1, sz = 1024;
+	T buf[1<<pow];
+	int s=0, e=1, sz = 1<<pow;
 	int sz_ = 0;
-	void push_back(int k)
+	void push_back(T k)
 	{
 		buf[e] = k;
-		e++; e &= 0x3ff;
+		e++; e &= (sz-1);
 		sz_++;
 	}
-	int pop_back()
+	T pop_back()
 	{
-		int k = buf[e];
-		e--; e &= 0x3ff;
+		T k = buf[e];
+		e--; e &= (sz-1);
 		sz_--;
 		return k;
 	}
-	void push_head(int k)
+	void push_head(T k)
 	{
 		buf[s] = k;
-		s--; s &= 0x3ff;
+		s--; s &= (sz-1);
 		sz_++;
 	}
-	int pop_head(int n)
+	T pop_head(int n)
 	{
-		int k = buf[s];
-		s+=n; s &= 0x3ff;
+		T k = buf[(s+1)&(sz-1)];
+		s+=n; s &= (sz-1);
 		sz_-=n;
 		return k;
 	}
 	bool is_empty()
-	{ return e == (s+1 & 0x3ff); }
+	{ return e == (s+1 & (sz-1)); }
 	bool is_full()
 	{ return ( s == e ); }
-	int back()
+	T back()
 	{
-		return buf[e-1 & 0x3ff];
+		return buf[e-1 & (sz-1)];
 	}
-	int operator[](size_t i)
+	void clear()
+	{ s=0; e=1; sz_ = 0; }
+	T operator[](size_t i)
 	{
-		return buf[s+1+i & 0x3ff];
+		return buf[s+1+i & (sz-1)];
 	}
 	size_t size()
 	{ return sz_; }
 };
 
 
-circ_buf_t matchbuf;
+circ_buf_t<char, 10> matchbuf;
 
 rrex_tree rrex_main_tree;
 rrex_tree *rrex_main_tree_ptr = &rrex_main_tree;
@@ -124,22 +126,6 @@ int rrex_tree_size(rrex_tree *root)
 	return size;
 }
 
-// range_beg, range_end, next_offset, reduce_to
-// 32bit, 32bit, 32bit, 32bit
-
-/*int flatten_tree(rrex_tree *root, int *buf )
-{
-	if( root == nullptr )
-		return 0;
-	//buf[0] = root->size();
-	//int jmpaddr = buf[0]+1;
-	int offset=0;
-	for(auto it = root->begin(); it != root->end(); it++ )
-	{
-		
-	}
-}*/
-
 int rrex_insert(std::vector<rrex_key> &&rrex, int64_t reduce=0 )
 { return rrex_insert(rrex, reduce ); }
 
@@ -147,26 +133,24 @@ struct match_shared_t
 {
 	int64_t *ret;
 	rrex_tree *root;
-	struct circ_buf_t *buf;
+	struct circ_buf_t<char, 10 > *buf;
+	struct circ_buf_t<int64_t, 3 > *redbuf;
 	std::istream *is;
-	//void *(**lang_callbacks)(match_shared_t &, void *, void *);
 };
 
 #define DO_CALLBACK 	0x80000000 
 #define DO_RECURSION 	0x40000000
 #define REDMASK		0x3fffffff
 
-void *lang_callbacks(int64_t, match_shared_t &, void *, void *);
+void *lang_callbacks(int64_t, match_shared_t &, void *, void * );
 
-void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce, int idx=0, int offset=0 )
+void match(match_shared_t &m, rrex_tree *next, int idx=0, int offset=0 )
 {	
 	match_start:
 
 		int64_t c;
-		if( lreduce >= 0 )
-			c = lreduce;
-		else if( rreduce >= 0 )
-			c = rreduce;
+		if( m.redbuf->size() )
+			c = m.redbuf->pop_head(1);
 		else if( idx == m.buf->size() )
 		{
 			if( m.buf->is_full() )
@@ -193,17 +177,10 @@ void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce,
 					if( to_check == 1 && (it->second.reduce < 0) )
 					{
 						next = it->second.next;
-						if( lreduce >= 0 )
-							lreduce = -1;
-						else
-							rreduce = -1;
 						goto match_start;
 					}
 					std::cout << "{ ";
-					if( rreduce >= 0 )
-						match(m, it->second.next, rreduce, -1, idx, offset );
-					else
-						match(m, it->second.next, -1, -1, idx, offset );
+						match(m, it->second.next, idx, offset );
 					std::cout << "} ";
 				}
 				if( it->second.reduce >= 0 )
@@ -213,23 +190,14 @@ void match(match_shared_t &m, rrex_tree *next, int64_t lreduce, int64_t rreduce,
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
 					}
+					m.redbuf->push_head(it->second.reduce);
 					if( to_check == 1 )
 					{
 						next = m.root;
-						if(rreduce >= 0)
-						{
-							lreduce = rreduce;
-							rreduce = it->second.reduce;
-						}
-						else
-							lreduce = it->second.reduce;
 						goto match_start;
 					}
 					std::cout << "{ ";
-					if( rreduce >=0 )
-						match(m, m.root, rreduce, it->second.reduce, idx, offset );
-					else
-						match(m, m.root, it->second.reduce, -1, idx, offset );
+						match(m, m.root, idx, offset );
 					std::cout << "} ";
 				}
 				to_check--;
@@ -253,37 +221,43 @@ void *make_sum(match_shared_t &m, void *pval, void *sval )
 	return pval;
 }
 
-void *match(rrex_tree *root, int64_t *ret, circ_buf_t &buf, std::istream &is, int64_t lreduce=-1, int idx=0 )
+void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, std::istream &is, int64_t start_token, int idx=0 )
 {
-	//void *(*lang_callbacks[])(match_shared_t &, void *, void * ) = {make_num, make_sum};
 	void *lval = NULL; void *rval = NULL;
-	int64_t rreduce = -1;
-	int64_t last_good;
-	//int64_t ret[2] = {0,0};
-	match_shared_t m{ret, root, &buf, &is /*, lang_callbacks*/ };
-	while( lreduce != -1 )
+	int64_t last_good=-1;
+	circ_buf_t<int64_t, 3 > redbuf;
+	match_shared_t m{ret, root, &buf, &redbuf, &is };
+	redbuf.push_head(start_token);
+	while( redbuf.size()  )
 	{
-		last_good = lreduce /*& REDMASK*/;
+		//last_good = redbuf[0];
 		ret[0] = 0; ret[1] = -1;
-		match(m, root, lreduce, rreduce, idx, rreduce >= 0 );
-		//std::cout << "\nlen:" << ret[0] << ", reduce:" << (ret[1] & REDMASK) << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
-		lreduce = ret[1];
-		if( lreduce >= 0 )
+		match(m, root, idx, redbuf.size() );
+		std::cout << "\nlen:" << ret[0] << ", reduce:" << (ret[1] & REDMASK) << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
+		redbuf.clear();
+
+		if( ret[1] >= 0 )
 		{
-			if( lreduce & DO_CALLBACK )
-				lval = lang_callbacks(lreduce & REDMASK, m, lval, rval );
+			last_good = ret[1];
+			redbuf.push_back(last_good & REDMASK);
+			if( last_good & DO_CALLBACK )
+				lval = lang_callbacks(last_good & REDMASK, m, lval, rval );
 			buf.pop_head(m.ret[0]);
 			ret[0] = 0; ret[1] = -1;
-			rreduce = -1;
-			if( lreduce & DO_RECURSION )
+			//ret[0] = 0; ret[1] = -1;
+			//rreduce = -1;
+			if( last_good & DO_RECURSION )
 			{
-				rval = match(root, ret, buf, is, lreduce & REDMASK, 0 );
-				rreduce = ret[1];
+				//ret[0] = 0; ret[1] = -1;
+				//redbuf.push_head(last_good & REDMASK );
+				rval = match(root, ret, buf, is, last_good & REDMASK );
+				redbuf.push_back(ret[1]);
 			}
-			lreduce &= REDMASK;
+			//redbuf.push_head(last_good & REDMASK);
+			//lreduce &= REDMASK;
 		}
 	}
-	ret[1] = last_good; //but this is useless
+	ret[1] = last_good & REDMASK;
 	return lval;
 }
 
@@ -309,13 +283,16 @@ enum
 	SUM	
 };
 
-void *lang_callbacks(int64_t reduce, match_shared_t &m, void *lval, void *rval)
+void *lang_callbacks(int64_t reduce, match_shared_t &m, void *lval, void *rval )
 {
 	switch(reduce)
 	{
 		case R_NUM:
 		case L_NUM:
-			return make_num(m, lval, rval );
+			{
+				int k;
+				return make_num(m, lval, rval );
+			}
 		case SUM:
 			return make_sum(m, lval, rval );
 	}
@@ -335,6 +312,7 @@ int main()
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	int64_t ret[3]={0,-1};
 	//match(ret, rrex_main_tree_ptr, rrex_main_tree_ptr, matchbuf, std::cin, START );
+	//redbuf.push_head(START);
 	match(rrex_main_tree_ptr, ret, matchbuf, std::cin, START );
 	//std::cout << "\nlen:" << ret[0] << ", reduce:" << ret[1] << std::endl;
 	std::cout << std::endl;
