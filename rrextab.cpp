@@ -299,11 +299,28 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				rval = new lang_val{L_SUM, 0};
 			}
 			break;
+		case L_PROD:
+			{
+				m.redbuf->clear();
+				m.redbuf->push_back(reduce);
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				rval = new lang_val{L_PROD, 0};
+			}
+			break;
+		case PROD:
+			{
+				m.redbuf->clear();
+				m.redbuf->push_back(reduce);
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				((lang_val *)lval)->value *= ((lang_val *)rval)->value;
+				delete (lang_val *)rval;
+				std::cout << ((lang_val *)lval)->value;
+			}
+			break;
 		case SUM:
 			{
 				m.redbuf->clear();
 				m.redbuf->push_back(reduce);
-				((lang_val *)lval)->prec_token = START;
 				m.redbuf->push_head(START);
 				((lang_val *)lval)->value += ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
@@ -315,10 +332,12 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 
 int main()
 {
-	rrex_insert({{START,L_SUM}, {'0','9'}}, NUM | DO_CALLBACK );
+	rrex_insert({{START,L_PROD}, {'0','9'}}, NUM | DO_CALLBACK );
 	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK );
 	rrex_insert({{START,START}, {NUM, SUM}, {'+','+'}}, L_SUM | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,NUM}}, SUM | DO_CALLBACK );
+	rrex_insert({{START,L_SUM}, {NUM,NUM}, {'*','*'}}, L_PROD | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,PROD}}, SUM | DO_CALLBACK );
+	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,NUM}}, PROD | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	int64_t ret[3]={0,-1};
 	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
