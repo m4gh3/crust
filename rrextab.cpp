@@ -138,6 +138,7 @@ struct match_shared_t
 	struct circ_buf_t<char, 10 > *buf;
 	struct circ_buf_t<int64_t, 3 > *redbuf;
 	std::istream *is;
+	int offset;
 };
 
 #define DO_CALLBACK 	0x80000000 
@@ -146,7 +147,7 @@ struct match_shared_t
 
 void lang_callbacks(int64_t, match_shared_t &, circ_buf_t<int64_t, 3 >&, void *&, void *& );
 
-void match(match_shared_t &m, rrex_tree *next, int idx=0, int offset=0 )
+void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 {	
 	match_start:
 
@@ -186,12 +187,12 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0, int offset=0 )
 						goto match_start;
 					}
 					std::cout << "{ ";
-						match(m, it->second.next, idx, offset );
+						match(m, it->second.next, idx );
 					std::cout << "} ";
 				}
 				if( it->second.reduce >= 0 )
 				{
-					if( idx+offset > m.ret[0] )
+					if( idx+m.offset > m.ret[0] )
 					{
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
@@ -204,7 +205,7 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0, int offset=0 )
 						goto match_start;
 					}
 					std::cout << "{ ";
-						match(m, m.root, idx, offset );
+						match(m, m.root, idx );
 					std::cout << "} ";
 				}
 				to_check--;
@@ -224,7 +225,8 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 	{
 		//last_good = redbuf[0];
 		ret[0] = 0; ret[1] = -1;
-		match(m, root, idx, redbuf.size() );
+		m.offset = redbuf.size();
+		match(m, root, idx );
 		std::cout << "\nlen:" << ret[0] << ", reduce:" << (ret[1] & REDMASK) << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
 		redbuf.clear();
 
