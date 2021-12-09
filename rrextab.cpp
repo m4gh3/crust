@@ -49,21 +49,21 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	}
 	T pop_back()
 	{
-		T k = buf[e];
 		e--; e &= (sz-1);
+		T k = buf[e];
 		sz_--;
 		return k;
 	}
 	void push_head(T k)
 	{
-		buf[s] = k;
+		buf[(s+1)&(sz-1)] = k;
 		s--; s &= (sz-1);
 		sz_++;
 	}
 	T pop_head(int n)
 	{
-		T k = buf[(s+1)&(sz-1)];
 		s+=n; s &= (sz-1);
+		T k = buf[(s+1)&(sz-1)];
 		sz_-=n;
 		return k;
 	}
@@ -152,18 +152,24 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 	match_start:
 
 		int64_t c;
-		if( m.redbuf->size() )
-			c = m.redbuf->pop_head(1);
-		else if( idx == m.buf->size() )
+		if( m.redbuf->size() > m.offset )
+			c = m.redbuf->pop_back();
+		else
 		{
-			if( m.buf->is_full() )
-				exit(EXIT_FAILURE);
-			m.buf->push_back(m.is->get());
-			c = m.buf->back();
+			if( idx < m.offset )
+				c = (*m.redbuf)[idx];
+			else if( idx-m.offset == m.buf->size() )
+			{
+				if( m.buf->is_full() )
+					exit(EXIT_FAILURE);
+				m.buf->push_back(m.is->get());
+				c = m.buf->back();
+				//idx++;
+			}
+			else
+				c = (*m.buf)[idx-m.offset/*++*/];
 			idx++;
 		}
-		else
-			c = (*m.buf)[idx++];
 
 		std::cout << "c=" << c << ',';
 
@@ -192,7 +198,7 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 				}
 				if( it->second.reduce >= 0 )
 				{
-					if( idx+m.offset > m.ret[0] )
+					if( idx/*+m.offset*/ > m.ret[0] )
 					{
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
@@ -236,7 +242,7 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 			redbuf.push_back(last_good & REDMASK);
 			if( last_good & DO_CALLBACK )
 				lang_callbacks(last_good & REDMASK, m, next_redbuf, lval, rval );
-			buf.pop_head(m.ret[0]);
+			buf.pop_head(m.ret[0]-m.offset);
 			ret[0] = 0; ret[1] = -1;
 			if( last_good & DO_RECURSION )
 			{
@@ -308,7 +314,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 					m.redbuf->push_head(START);
 				}
 				int *retval = &(((lang_val *)lval)->value);
-				for(int i=0; i < m.ret[0]; i++ )
+				for(int i=0; i < m.ret[0]-m.offset; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
 				std::cout << (*retval) << std::endl;
 			}
