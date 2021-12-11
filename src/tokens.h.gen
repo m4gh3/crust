@@ -2,5 +2,9 @@
 	START:
 	L_PAR:
 	L_SUM:
-	L_PROD
+	L_PROD:
+	NUM:
+	PAR:
+	PROD:
+	SUM
 :}

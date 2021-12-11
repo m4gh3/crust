@@ -4,8 +4,9 @@
 #include <string>
 #include <map>
 #include <cstdint>
-
 #define RREXTAB_TEXT_DBG 1
+#include "../build/include/mytokens.h"
+
 
 struct rrex_key
 {
@@ -174,7 +175,18 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 		}
 
 		#if RREXTAB_TEXT_DBG
-			std::cout << "c=" << c << ',';
+			std::cout << "c="; //<< c << ',';
+			if( c >= 0 )
+			{
+				if((c&REDMASK) > 255)
+					std::cout << token_names[(c&REDMASK)-256];
+				else
+					std::cout << '\'' << (char)(c&REDMASK) << '\'';
+				std::cout << ' ' << (c&DO_CALLBACK ? 'c' : ' ') << (c&DO_RECURSION ? 'r' : ' ') << ',';
+			}
+			else
+				std::cout << "-1" << ',';
+
 		#endif
 
 		int to_check = 0;
@@ -247,7 +259,20 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 		ret[0] = 0; ret[1] = -1;
 		m.offset = redbuf.size();
 		match(m, root, idx );
-		std::cout << "\nlen:" << ret[0] << ", reduce:" << (ret[1] & REDMASK) << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
+		#if RREXTAB_TEXT_DBG
+			std::cout << "\nlen:" << ret[0] << ", reduce:";
+
+		       	if( ret[1] >= 0 )
+			{
+				if((ret[1]&REDMASK) > 255)
+					std::cout << token_names[(ret[1]&REDMASK)-256];
+				else
+					std::cout << '\'' << (char)(ret[1]&REDMASK) << '\'';
+				std::cout << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
+			}
+			else
+				std::cout << "-1" << std::endl;
+		#endif
 		redbuf.clear();
 
 		if( ret[1] >= 0 )
@@ -272,18 +297,6 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 	return lval;
 }
 
-
-enum
-{
-	START = 256,
-	L_PAR,
-	L_SUM,
-	L_PROD,
-	NUM,
-	PAR,
-	PROD,
-	SUM	
-};
 
 struct lang_val
 {
