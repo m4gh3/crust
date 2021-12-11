@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 #include <cstdint>
-#define RREXTAB_TEXT_DBG 1
+#define RREXTAB_TEXT_DBG 0
 #include "../build/include/mytokens.h"
 
 
@@ -46,6 +46,10 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	int sz_ = 0;
 	void push_back(T k)
 	{
+		#if RREXTAB_TEXT_DBG
+		if( k== 0)
+			std::cout << "pushing back 0 !!" << std::endl;
+		#endif
 		buf[e] = k;
 		e++; e &= (sz-1);
 		sz_++;
@@ -59,6 +63,10 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	}
 	void push_head(T k)
 	{
+		#if RREXTAB_TEXT_DBG
+		if(k==0)
+			std::cout << "pushing head 0 !!" << std::endl;
+		#endif
 		buf[s] = k;
 		s--; s &= (sz-1);
 		sz_++;
@@ -176,16 +184,20 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 
 		#if RREXTAB_TEXT_DBG
 			std::cout << "c="; //<< c << ',';
+			if( c== 0 )
+			{
+				std::cout << "c=0 !!! what??? idx: " << idx << std::endl;
+			}
 			if( c >= 0 )
 			{
 				if((c&REDMASK) > 255)
 					std::cout << token_names[(c&REDMASK)-256];
 				else
 					std::cout << '\'' << (char)(c&REDMASK) << '\'';
-				std::cout << ' ' << (c&DO_CALLBACK ? 'c' : ' ') << (c&DO_RECURSION ? 'r' : ' ') << ',';
+				std::cout << ' ' << (c&DO_CALLBACK ? 'c' : ' ') << (c&DO_RECURSION ? 'r' : ' ') << std::endl;
 			}
 			else
-				std::cout << "-1" << ',';
+				std::cout << "-1" << std::endl;
 
 		#endif
 
@@ -199,7 +211,7 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 		{
 			#if RREXTAB_TEXT_DBG
 				if(it->second.glow)
-				std::cout << "g, ";
+				std::cout << "g" << std::endl;
 			#endif
 			if( it->first.a <= c && c <= it->first.b )
 			{
@@ -212,7 +224,9 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 					}
 					#if RREXTAB_TEXT_DBG
 						std::cout << "{ ";
+					#endif
 							match(m, it->second.next, idx );
+					#if RREXTAB_TEXT_DBG
 						std::cout << "} ";
 					#endif
 				}
@@ -224,7 +238,7 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 						m.ret[1] = it->second.reduce;
 					}
 					#if RREXTAB_TEXT_DBG
-						std::cout << "m, ";
+						std::cout << "m" << std::endl;
 					#endif
 					m.redbuf->push_back(it->second.reduce);
 					if( to_check == 1 )
@@ -279,6 +293,9 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 		{
 			last_good = ret[1];
 			redbuf.push_back(last_good & REDMASK);
+			#if RREXTAB_TEXT_DBG
+				std::cout << "pushing " << (last_good & REDMASK) << std::endl;
+			#endif
 			if( last_good & DO_CALLBACK )
 				lang_callbacks(last_good & REDMASK, m, next_redbuf, lval, rval );
 			buf.pop_head(m.ret[0]-m.offset);
@@ -329,16 +346,8 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			break;
 		case NUM:
 			{
-				/*if( lval != NULL )
-				{
-					m.redbuf->push_head(((lang_val *)lval)->prec_token);
-					((lang_val *)lval)->value = 0;
-				}
-				else*/
-				{
-					lval = new lang_val{START, 0 };
-					m.redbuf->push_head(START);
-				}
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				((lang_val *)lval)->value = 0;
 				int *retval = &(((lang_val *)lval)->value);
 				for(int i=0; i < m.ret[0]-m.offset; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
@@ -380,9 +389,10 @@ int main()
 	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,PROD}}, SUM | DO_CALLBACK );
 	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,PAR}}, PROD | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
+	std::cout << "START = " << START <<std::endl;
 	int64_t ret[3]={0,-1};
 	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
-	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{0, START}, std::cin );
+	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{START, 0}, std::cin );
 	std::cout << std::endl;
 	return 0;
 }
