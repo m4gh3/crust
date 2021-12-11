@@ -5,6 +5,8 @@
 #include <map>
 #include <cstdint>
 
+#define RREXTAB_TEXT_DBG 1
+
 struct rrex_key
 {
 	int64_t a,b;
@@ -171,7 +173,9 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 			idx++;
 		}
 
-		std::cout << "c=" << c << ',';
+		#if RREXTAB_TEXT_DBG
+			std::cout << "c=" << c << ',';
+		#endif
 
 		int to_check = 0;
 
@@ -181,8 +185,10 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 
 		for( auto it = next->lower_bound({c,c}); it != next->end() && to_check; it++ )
 		{
-			if(it->second.glow)
+			#if RREXTAB_TEXT_DBG
+				if(it->second.glow)
 				std::cout << "g, ";
+			#endif
 			if( it->first.a <= c && c <= it->first.b )
 			{
 				if( it->second.next != nullptr )
@@ -192,9 +198,11 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 						next = it->second.next;
 						goto match_start;
 					}
-					std::cout << "{ ";
-						match(m, it->second.next, idx );
-					std::cout << "} ";
+					#if RREXTAB_TEXT_DBG
+						std::cout << "{ ";
+							match(m, it->second.next, idx );
+						std::cout << "} ";
+					#endif
 				}
 				if( it->second.reduce >= 0 )
 				{
@@ -203,16 +211,22 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
 					}
-					std::cout << "m, ";
-					m.redbuf->push_head(it->second.reduce);
+					#if RREXTAB_TEXT_DBG
+						std::cout << "m, ";
+					#endif
+					m.redbuf->push_back(it->second.reduce);
 					if( to_check == 1 )
 					{
 						next = m.root;
 						goto match_start;
 					}
-					std::cout << "{ ";
+					#if RREXTAB_TEXT_DBG
+						std::cout << "{ ";
+					#endif
 						match(m, m.root, idx );
-					std::cout << "} ";
+					#if RREXTAB_TEXT_DBG
+						std::cout << "} ";
+					#endif
 				}
 				to_check--;
 			}
@@ -284,7 +298,6 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 	{
 		case L_PAR:
 			{
-				//m.redbuf->push_head(PAR);
 				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				rval = new lang_val{START, 0};
 			}
@@ -303,12 +316,12 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			break;
 		case NUM:
 			{
-				if( lval != NULL )
+				/*if( lval != NULL )
 				{
 					m.redbuf->push_head(((lang_val *)lval)->prec_token);
 					((lang_val *)lval)->value = 0;
 				}
-				else
+				else*/
 				{
 					lval = new lang_val{START, 0 };
 					m.redbuf->push_head(START);
@@ -316,7 +329,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				int *retval = &(((lang_val *)lval)->value);
 				for(int i=0; i < m.ret[0]-m.offset; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
-				std::cout << (*retval) << std::endl;
+				std::cout << " result:" << (*retval) << std::endl;
 			}
 			break;
 		case PAR:
@@ -329,7 +342,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				((lang_val *)lval)->value *= ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
-				std::cout << ((lang_val *)lval)->value;
+				std::cout << " result:" << ((lang_val *)lval)->value;
 			}
 			break;
 		case SUM:
@@ -337,7 +350,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				m.redbuf->push_head(START);
 				((lang_val *)lval)->value += ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
-				std::cout << ((lang_val *)lval)->value;
+				std::cout << " result:" << ((lang_val *)lval)->value;
 			}
 			break;
 	}
@@ -346,17 +359,17 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 int main()
 {
 	rrex_insert({{START,L_PROD}, {'0','9'}}, NUM | DO_CALLBACK );
-	rrex_insert({{START,L_PROD}, {'(','('}}, L_PAR | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,L_PROD}, {L_PAR,L_PAR}, {')',')'}}, PAR | DO_CALLBACK );
-	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK, true );
-	rrex_insert({{START,START}, {NUM, SUM}, {'+','+'}}, L_SUM | DO_CALLBACK | DO_RECURSION, true );
+	rrex_insert({{START,L_PROD}, {'(','('}}, L_PAR | DO_CALLBACK | DO_RECURSION, true );
+	rrex_insert({{START,L_PROD}, {L_PAR,L_PAR}, {NUM,SUM}, {')',')'}}, PAR | DO_CALLBACK, true );
+	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK );
+	rrex_insert({{START,START}, {NUM, SUM}, {'+','+'}}, L_SUM | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{START,L_SUM}, {NUM,PROD}, {'*','*'}}, L_PROD | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,PROD}}, SUM | DO_CALLBACK );
-	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,NUM}}, PROD | DO_CALLBACK );
+	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,PAR}}, PROD | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	int64_t ret[3]={0,-1};
 	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
-	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, NULL, std::cin );
+	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{0, START}, std::cin );
 	std::cout << std::endl;
 	return 0;
 }
