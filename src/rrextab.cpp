@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 #include <cstdint>
-#define RREXTAB_TEXT_DBG 0
+#define RREXTAB_TEXT_DBG 1
 #include "../build/include/mytokens.h"
 
 
@@ -46,10 +46,6 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	int sz_ = 0;
 	void push_back(T k)
 	{
-		#if RREXTAB_TEXT_DBG
-		if( k== 0)
-			std::cout << "pushing back 0 !!" << std::endl;
-		#endif
 		buf[e] = k;
 		e++; e &= (sz-1);
 		sz_++;
@@ -63,10 +59,6 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	}
 	void push_head(T k)
 	{
-		#if RREXTAB_TEXT_DBG
-		if(k==0)
-			std::cout << "pushing head 0 !!" << std::endl;
-		#endif
 		buf[s] = k;
 		s--; s &= (sz-1);
 		sz_++;
@@ -175,31 +167,11 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 					exit(EXIT_FAILURE);
 				m.buf->push_back(m.is->get());
 				c = m.buf->back();
-				//idx++;
 			}
 			else
-				c = (*m.buf)[idx-m.offset/*++*/];
+				c = (*m.buf)[idx-m.offset];
 			idx++;
-		}
-
-		#if RREXTAB_TEXT_DBG
-			std::cout << "c="; //<< c << ',';
-			if( c== 0 )
-			{
-				std::cout << "c=0 !!! what??? idx: " << idx << std::endl;
-			}
-			if( c >= 0 )
-			{
-				if((c&REDMASK) > 255)
-					std::cout << token_names[(c&REDMASK)-256];
-				else
-					std::cout << '\'' << (char)(c&REDMASK) << '\'';
-				std::cout << ' ' << (c&DO_CALLBACK ? 'c' : ' ') << (c&DO_RECURSION ? 'r' : ' ') << std::endl;
-			}
-			else
-				std::cout << "-1" << std::endl;
-
-		#endif
+		}	
 
 		int to_check = 0;
 
@@ -209,10 +181,6 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 
 		for( auto it = next->lower_bound({c,c}); it != next->end() && to_check; it++ )
 		{
-			#if RREXTAB_TEXT_DBG
-				if(it->second.glow)
-				std::cout << "g" << std::endl;
-			#endif
 			if( it->first.a <= c && c <= it->first.b )
 			{
 				if( it->second.next != nullptr )
@@ -222,37 +190,22 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 						next = it->second.next;
 						goto match_start;
 					}
-					#if RREXTAB_TEXT_DBG
-						std::cout << "{ ";
-					#endif
-							match(m, it->second.next, idx );
-					#if RREXTAB_TEXT_DBG
-						std::cout << "} ";
-					#endif
+					match(m, it->second.next, idx );
 				}
 				if( it->second.reduce >= 0 )
 				{
-					if( idx/*+m.offset*/ > m.ret[0] )
+					if( idx > m.ret[0] )
 					{
 						m.ret[0] = idx;
 						m.ret[1] = it->second.reduce;
 					}
-					#if RREXTAB_TEXT_DBG
-						std::cout << "m" << std::endl;
-					#endif
 					m.redbuf->push_back(it->second.reduce);
 					if( to_check == 1 )
 					{
 						next = m.root;
 						goto match_start;
 					}
-					#if RREXTAB_TEXT_DBG
-						std::cout << "{ ";
-					#endif
-						match(m, m.root, idx );
-					#if RREXTAB_TEXT_DBG
-						std::cout << "} ";
-					#endif
+					match(m, m.root, idx );
 				}
 				to_check--;
 			}
@@ -262,14 +215,12 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 
 void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, int idx=0 )
 {
-	//void *lval = NULL;
 	void *rval = NULL;
 	int64_t last_good=-1;
 	circ_buf_t<int64_t, 3 > next_redbuf;
 	match_shared_t m{ret, root, &buf, &redbuf, &is };
-	while( /*redbuf.size()*/ true )
+	while( true )
 	{
-		//last_good = redbuf[0];
 		ret[0] = 0; ret[1] = -1;
 		m.offset = redbuf.size();
 		match(m, root, idx );
@@ -293,9 +244,6 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 		{
 			last_good = ret[1];
 			redbuf.push_back(last_good & REDMASK);
-			#if RREXTAB_TEXT_DBG
-				std::cout << "pushing " << (last_good & REDMASK) << std::endl;
-			#endif
 			if( last_good & DO_CALLBACK )
 				lang_callbacks(last_good & REDMASK, m, next_redbuf, lval, rval );
 			buf.pop_head(m.ret[0]-m.offset);
