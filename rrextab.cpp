@@ -56,7 +56,7 @@ template<typename T, unsigned int pow >  struct circ_buf_t
 	}
 	void push_head(T k)
 	{
-		buf[(s+1)&(sz-1)] = k;
+		buf[s] = k;
 		s--; s &= (sz-1);
 		sz_++;
 	}
@@ -350,7 +350,7 @@ int main()
 	rrex_insert({{START,L_PROD}, {L_PAR,L_PAR}, {')',')'}}, PAR | DO_CALLBACK );
 	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK, true );
 	rrex_insert({{START,START}, {NUM, SUM}, {'+','+'}}, L_SUM | DO_CALLBACK | DO_RECURSION, true );
-	rrex_insert({{START,L_SUM}, {NUM,PAR}, {'*','*'}}, L_PROD | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{START,L_SUM}, {NUM,PROD}, {'*','*'}}, L_PROD | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,PROD}}, SUM | DO_CALLBACK );
 	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,NUM}}, PROD | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
