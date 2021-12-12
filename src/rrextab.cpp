@@ -1,100 +1,10 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <string>
-#include <map>
-#include <cstdint>
-#define RREXTAB_TEXT_DBG 1
-#include "../build/include/mytokens.h"
-
-
-struct rrex_key
-{
-	int64_t a,b;
-	//if rrex_key X is included in or equal to rrex_key Y then X <= Y
-	bool operator<(const struct rrex_key s) const
-	{
-		if(b<s.b)
-			return true;
-		if(b>s.b)
-			return false;
-		if(a>s.a)
-			return true;
-		return false;
-	}
-	bool operator==(const struct rrex_key s) const
-	{ return (a == s.a) && (b == s.b); }
-	void print()
-	{ std::cout << "('" << a << "','" << b << "')"; }
-};
-
-struct rrex_data
-{
-	int64_t reduce = -1;
-	bool glow=false;
-	std::map<rrex_key, rrex_data > *next = nullptr;
-};
-
-int last_reduce=1;
-
-typedef std::map<rrex_key, rrex_data > rrex_tree;
-
-template<typename T, unsigned int pow >  struct circ_buf_t
-{
-	T buf[1<<pow];
-	int s=0, e=1, sz = 1<<pow;
-	int sz_ = 0;
-	void push_back(T k)
-	{
-		buf[e] = k;
-		e++; e &= (sz-1);
-		sz_++;
-	}
-	T pop_back()
-	{
-		e--; e &= (sz-1);
-		T k = buf[e];
-		sz_--;
-		return k;
-	}
-	void push_head(T k)
-	{
-		buf[s] = k;
-		s--; s &= (sz-1);
-		sz_++;
-	}
-	T pop_head(int n)
-	{
-		s+=n; s &= (sz-1);
-		T k = buf[(s+1)&(sz-1)];
-		sz_-=n;
-		return k;
-	}
-	bool is_empty()
-	{ return e == (s+1 & (sz-1)); }
-	bool is_full()
-	{ return ( s == e ); }
-	T back()
-	{
-		return buf[e-1 & (sz-1)];
-	}
-	void clear()
-	{ s=0; e=1; sz_ = 0; }
-	T operator[](size_t i)
-	{
-		return buf[s+1+i & (sz-1)];
-	}
-	size_t size()
-	{ return sz_; }
-};
-
-
-circ_buf_t<char, 10> matchbuf;
+#include "rrextab.hpp"
 
 rrex_tree rrex_main_tree;
 rrex_tree *rrex_main_tree_ptr = &rrex_main_tree;
+circ_buf_t<char, 10> matchbuf;
 
-int rrex_insert(std::vector<rrex_key> &rrex, int64_t reduce=0, bool glow=false )
+int rrex_insert(std::vector<rrex_key> &rrex, int64_t reduce, bool glow )
 {
 
 	std::map<rrex_key, rrex_data > **next = &rrex_main_tree_ptr;
@@ -111,7 +21,6 @@ int rrex_insert(std::vector<rrex_key> &rrex, int64_t reduce=0, bool glow=false )
 
 		if( i == rrex.size()-1 )
 			data.reduce = reduce;
-		data.glow |= glow;
 	
 		next = &data.next;
 
@@ -131,26 +40,10 @@ int rrex_tree_size(rrex_tree *root)
 	return size;
 }
 
-int rrex_insert(std::vector<rrex_key> &&rrex, int64_t reduce=0, bool glow=false )
+int rrex_insert(std::vector<rrex_key> &&rrex, int64_t reduce, bool glow )
 { return rrex_insert(rrex, reduce, glow ); }
 
-struct match_shared_t
-{
-	int64_t *ret;
-	rrex_tree *root;
-	struct circ_buf_t<char, 10 > *buf;
-	struct circ_buf_t<int64_t, 3 > *redbuf;
-	std::istream *is;
-	int offset;
-};
-
-#define DO_CALLBACK 	0x80000000 
-#define DO_RECURSION 	0x40000000
-#define REDMASK		0x3fffffff
-
-void lang_callbacks(int64_t, match_shared_t &, circ_buf_t<int64_t, 3 >&, void *&, void *& );
-
-void match(match_shared_t &m, rrex_tree *next, int idx=0 )
+void match(match_shared_t &m, rrex_tree *next, int idx )
 {	
 	match_start:
 
@@ -213,7 +106,7 @@ void match(match_shared_t &m, rrex_tree *next, int idx=0 )
 }
 
 
-void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, int idx=0 )
+void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, int idx )
 {
 	void *rval = NULL;
 	int64_t last_good=-1;
@@ -224,20 +117,6 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 		ret[0] = 0; ret[1] = -1;
 		m.offset = redbuf.size();
 		match(m, root, idx );
-		#if RREXTAB_TEXT_DBG
-			std::cout << "\nlen:" << ret[0] << ", reduce:";
-
-		       	if( ret[1] >= 0 )
-			{
-				if((ret[1]&REDMASK) > 255)
-					std::cout << token_names[(ret[1]&REDMASK)-256];
-				else
-					std::cout << '\'' << (char)(ret[1]&REDMASK) << '\'';
-				std::cout << ' ' << (ret[1]&DO_CALLBACK ? 'c' : ' ') << (ret[1]&DO_RECURSION ? 'r' : ' ') << std::endl;
-			}
-			else
-				std::cout << "-1" << std::endl;
-		#endif
 		redbuf.clear();
 
 		if( ret[1] >= 0 )
@@ -269,78 +148,3 @@ struct lang_val
 	int value;
 };
 
-
-void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
-{
-	switch(reduce)
-	{
-		case L_PAR:
-			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
-				rval = new lang_val{START, 0};
-			}
-			break;
-		case L_SUM:
-			{
-				m.redbuf->push_head(START);
-				rval = new lang_val{L_SUM, 0};
-			}
-			break;
-		case L_PROD:
-			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
-				rval = new lang_val{L_PROD, 0};
-			}
-			break;
-		case NUM:
-			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
-				((lang_val *)lval)->value = 0;
-				int *retval = &(((lang_val *)lval)->value);
-				for(int i=0; i < m.ret[0]-m.offset; i++ )
-					((*retval) *= 10)+=((*m.buf)[i]-'0');
-				std::cout << " result:" << (*retval) << std::endl;
-			}
-			break;
-		case PAR:
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
-				((lang_val *)lval)->value = ((lang_val *)rval)->value;
-
-			break;
-		case PROD:
-			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
-				((lang_val *)lval)->value *= ((lang_val *)rval)->value;
-				delete (lang_val *)rval;
-				std::cout << " result:" << ((lang_val *)lval)->value;
-			}
-			break;
-		case SUM:
-			{
-				m.redbuf->push_head(START);
-				((lang_val *)lval)->value += ((lang_val *)rval)->value;
-				delete (lang_val *)rval;
-				std::cout << " result:" << ((lang_val *)lval)->value;
-			}
-			break;
-	}
-}
-
-int main()
-{
-	rrex_insert({{START,L_PROD}, {'0','9'}}, NUM | DO_CALLBACK );
-	rrex_insert({{START,L_PROD}, {'(','('}}, L_PAR | DO_CALLBACK | DO_RECURSION, true );
-	rrex_insert({{START,L_PROD}, {L_PAR,L_PAR}, {NUM,SUM}, {')',')'}}, PAR | DO_CALLBACK, true );
-	rrex_insert({{NUM | DO_CALLBACK, NUM | DO_CALLBACK}, {'0','9'}}, NUM | DO_CALLBACK );
-	rrex_insert({{START,START}, {NUM, SUM}, {'+','+'}}, L_SUM | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,L_SUM}, {NUM,PROD}, {'*','*'}}, L_PROD | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,START}, {L_SUM,L_SUM}, {NUM,PROD}}, SUM | DO_CALLBACK );
-	rrex_insert({{START,L_SUM}, {L_PROD, L_PROD}, {NUM,PAR}}, PROD | DO_CALLBACK );
-	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	std::cout << "START = " << START <<std::endl;
-	int64_t ret[3]={0,-1};
-	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
-	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{START, 0}, std::cin );
-	std::cout << std::endl;
-	return 0;
-}
