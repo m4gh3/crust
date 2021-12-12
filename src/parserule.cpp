@@ -3,8 +3,9 @@
 enum
 {
 	START=256,
-	L_CHAIN,
 	L_ARROW,
+	ARROW,
+	L_CHAIN,
 	L_COMMA,
 	IDENT,
 	COMMA,
@@ -21,6 +22,12 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 {
 	switch(reduce)
 	{
+		case L_ARROW:
+		{
+			m.redbuf->push_head(START);
+			rval = new lang_val{L_ARROW, {}};
+		}
+		break;
 		case L_CHAIN:
 		{
 			m.redbuf->push_head(START);
@@ -62,19 +69,31 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			std::cout << std::endl;
 		}
 		break;
+		case ARROW:
+		{
+			m.redbuf->push_head(START);
+			std::cout << "result:";
+			for(auto &str : ((lang_val *)lval)->value )
+				std::cout << ' ' << str;
+			std::cout << " ->" << ((lang_val *)rval)->value[0] << std::endl;
+			delete (lang_val *)rval;
+			((lang_val *)lval)->value = {};
+		}
+		break;
 	}
 }
 
 int main()
 {
-	rrex_insert({{START,START}, {' ',' '}}, START );
-	rrex_insert({{START,START}, {'\t','\t'}}, START );
+	rrex_insert({{START,ARROW}, {' ',' '}}, START );
+	rrex_insert({{START,ARROW}, {'\t','\t'}}, START );
 	rrex_insert({{L_COMMA,L_COMMA}, {' ',' '}}, L_COMMA );
 	rrex_insert({{L_COMMA,L_COMMA}, {'\t','\t'}}, L_COMMA );
+	rrex_insert({{L_ARROW,L_ARROW}, {' ',' '}}, L_ARROW );
+	rrex_insert({{L_ARROW,L_ARROW}, {'\t','\t'}}, L_ARROW );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {'-','-'},{'>','>'}}, L_ARROW | DO_CALLBACK | DO_RECURSION );
-
 	rrex_insert({{START,L_COMMA}, {'a','z'}}, IDENT | DO_CALLBACK );
 	rrex_insert({{START,L_COMMA}, {'A','Z'}}, IDENT | DO_CALLBACK );
 	rrex_insert({{START,L_COMMA}, {'_','_'}}, IDENT | DO_CALLBACK );
@@ -89,6 +108,7 @@ int main()
 	//rrex_insert({{START,START}, {IDENT,COMMA}, {' ',' '} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	//rrex_insert({{START,START}, {IDENT,COMMA}, {'\t','\t'} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{START,START}, {L_CHAIN,L_CHAIN}, {IDENT,COMMA}}, CHAIN | DO_CALLBACK );
+	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,IDENT}, {'\n','\n'}}, ARROW | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
 	int64_t ret[3]={0,-1};
