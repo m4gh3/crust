@@ -71,7 +71,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 		break;
 		case ARROW:
 		{
-			m.redbuf->push_head(START);
+			//m.redbuf->push_head(START);
 			std::cout << "result:";
 			for(auto &str : ((lang_val *)lval)->value )
 				std::cout << ' ' << str;
