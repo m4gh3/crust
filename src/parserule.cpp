@@ -7,7 +7,9 @@ enum
 	ARROW,
 	L_CHAIN,
 	L_COMMA,
+	L_OR,
 	IDENT,
+	OR,
 	COMMA,
 	CHAIN
 };
