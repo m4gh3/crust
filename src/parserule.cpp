@@ -14,10 +14,27 @@ enum
 	CHAIN
 };
 
+std::map<std::string, int64_t> idents = {{"DO_RECURSION", DO_RECURSION}, {"DO_CALLBACK",DO_CALLBACK} };
+
 struct lang_val
 {
 	int64_t prec_token;
-	std::vector<std::string> value;
+	struct tagged_value_t
+	{
+		int type;
+		union value_t
+		{
+			std::string str;
+			int64_t r[2];
+			~value_t(){}
+		} value;
+		~tagged_value_t()
+		{
+			if(type)
+				value.str.std::string::~string();
+		}		
+	};
+	std::vector<tagged_value_t> value;
 };
 
 void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
@@ -42,14 +59,60 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			rval = new lang_val{L_COMMA, {}};
 		}
 		break;
-		case IDENT:
+		case L_OR:
 		{
 			m.redbuf->push_head(((lang_val *)lval)->prec_token);
-			((lang_val *)lval)->value = {""};
-			std::string *retval = &(((lang_val *)lval)->value)[0];
-			for(int i=0; i < m.ret[0]-m.offset; i++ )
-				(*retval) += (*m.buf)[i];
-			std::cout << " result:" << (*retval) << std::endl;
+			rval = new lang_val{L_OR, {}};
+			std::cout << "L_OR" << std::endl;
+		}
+		break;
+		case IDENT:
+		{
+			std::string identstr;
+			m.redbuf->push_head(((lang_val *)lval)->prec_token);
+			if((*m.buf)[0] == '\'')
+			{
+				for(int i=1; i < m.ret[0]-m.offset; i++ )
+				{
+					if((*m.buf)[i] == '\'' )
+						goto end_fetch_str;
+					identstr += (*m.buf)[i];
+				}
+				for(char c; (c = m.is->get()) != '\''; )
+					identstr.push_back(c);
+				end_fetch_str:
+				((lang_val *)lval)->value.push_back({0,{.str=identstr}});
+			}
+			else
+			{
+				//TODO: optimize and remove loop
+				for(int i=0; i < m.ret[0]-m.offset; i++ )
+					identstr += (*m.buf)[i];
+				auto ident_data = idents.find(identstr);
+				if( ident_data == idents.end() )
+					exit(EXIT_FAILURE);
+				((lang_val *)lval)->value.push_back({0,{.r={ident_data->second, ident_data->second}}});
+			}
+		}
+		break;
+		case OR:
+		{
+			m.redbuf->push_head(((lang_val *)lval)->prec_token);
+			if( ((lang_val *)lval)->value[0].type )
+			{
+				((lang_val *)lval)->value[0].value.r[0] =
+					((lang_val *)lval)->value[0].value.r[1] =
+					((lang_val *)lval)->value[0].value.str[0];
+				((lang_val *)lval)->value[0].type = 0;
+			}
+			if( ((lang_val *)rval)->value[0].type )
+			{
+				((lang_val *)rval)->value[0].value.r[0] =
+					((lang_val *)rval)->value[0].value.r[1] =
+					((lang_val *)rval)->value[0].value.str[0];
+				((lang_val *)rval)->value[0].type = 0;
+			}
+			delete (lang_val *)rval;
 		}
 		break;
 		case COMMA:
@@ -89,28 +152,36 @@ int main()
 {
 	rrex_insert({{START,ARROW}, {' ',' '}}, START );
 	rrex_insert({{START,ARROW}, {'\t','\t'}}, START );
+	rrex_insert({{L_OR,L_OR}, {' ',' '}}, L_OR );
+	rrex_insert({{L_OR,L_OR}, {'\t','\t'}}, L_OR );
 	rrex_insert({{L_COMMA,L_COMMA}, {' ',' '}}, L_COMMA );
 	rrex_insert({{L_COMMA,L_COMMA}, {'\t','\t'}}, L_COMMA );
 	rrex_insert({{L_ARROW,L_ARROW}, {' ',' '}}, L_ARROW );
 	rrex_insert({{L_ARROW,L_ARROW}, {'\t','\t'}}, L_ARROW );
+
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {'-','-'},{'>','>'}}, L_ARROW | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,L_COMMA}, {'a','z'}}, IDENT | DO_CALLBACK );
-	rrex_insert({{START,L_COMMA}, {'A','Z'}}, IDENT | DO_CALLBACK );
-	rrex_insert({{START,L_COMMA}, {'_','_'}}, IDENT | DO_CALLBACK );
-	rrex_insert({{START,L_COMMA}, {'\'','\''}}, IDENT | DO_CALLBACK );
+
+	rrex_insert({{START,L_OR}, {'a','z'}}, IDENT | DO_CALLBACK );
+	rrex_insert({{START,L_OR}, {'A','Z'}}, IDENT | DO_CALLBACK );
+	rrex_insert({{START,L_OR}, {'_','_'}}, IDENT | DO_CALLBACK );
+	rrex_insert({{START,L_OR}, {'\'','\''}}, IDENT | DO_CALLBACK );
 	rrex_insert({{IDENT | DO_CALLBACK,IDENT | DO_CALLBACK}, {'a','z'}}, IDENT | DO_CALLBACK );
 	rrex_insert({{IDENT | DO_CALLBACK,IDENT | DO_CALLBACK}, {'A','Z'}}, IDENT | DO_CALLBACK );
-	rrex_insert({{IDENT | DO_CALLBACK}, {'_','_'}}, IDENT | DO_CALLBACK );
-	rrex_insert({{START,L_CHAIN}, {IDENT,IDENT}, {',',','} }, L_COMMA | DO_CALLBACK | DO_RECURSION );
-	rrex_insert({{START,L_CHAIN}, {L_COMMA,L_COMMA}, {IDENT,IDENT} }, COMMA | DO_CALLBACK );
+	rrex_insert({{IDENT | DO_CALLBACK,IDENT | DO_CALLBACK}, {'_','_'}}, IDENT | DO_CALLBACK );
+
+	rrex_insert({{START,L_COMMA}, {IDENT,OR}, {'|','|'} }, L_OR | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{START,L_COMMA}, {L_OR,L_OR}, {IDENT,IDENT} }, OR | DO_CALLBACK );
+
+	rrex_insert({{START,L_CHAIN}, {IDENT,OR}, {',',','} }, L_COMMA | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{START,L_CHAIN}, {L_COMMA,L_COMMA}, {IDENT,OR} }, COMMA | DO_CALLBACK );
+
 	rrex_insert({{START,START}, {IDENT,CHAIN}, {' ',' '} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{START,START}, {IDENT,CHAIN}, {'\t','\t'} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
-	//rrex_insert({{START,START}, {IDENT,COMMA}, {' ',' '} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
-	//rrex_insert({{START,START}, {IDENT,COMMA}, {'\t','\t'} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
+
 	rrex_insert({{START,START}, {L_CHAIN,L_CHAIN}, {IDENT,COMMA}}, CHAIN | DO_CALLBACK );
-	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,IDENT}, {'\n','\n'}}, ARROW | DO_CALLBACK );
+	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,OR}, {'\n','\n'}}, ARROW | DO_CALLBACK );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
 	int64_t ret[3]={0,-1};
