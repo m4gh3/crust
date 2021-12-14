@@ -22,18 +22,16 @@ struct lang_val
 	struct tagged_value_t
 	{
 		int type;
-		union value_t
+		struct value_t
 		{
 			value_t() {}
+			value_t(const std::string &s) : str(s)
+			{}
 			std::string str;
 			int64_t r[2];
-			~value_t(){}
 		} value;
-		tagged_value_t(std::string _str )
-		{
-			type = 1;
-			value.str = _str;
-		}
+		tagged_value_t(std::string _str ) : value(_str)
+		{ type = 1; }
 		tagged_value_t(uint64_t a, uint64_t b)
 		{
 			type = 0;
@@ -56,7 +54,7 @@ struct lang_val
 		tagged_value_t& operator=(const lang_val::tagged_value_t& val)
 		{
 			if(type)
-				value.str.std::string::~string();
+				value.str="";
 			type = val.type;
 			if(val.type)
 				value.str = val.value.str;
@@ -67,11 +65,6 @@ struct lang_val
 			}
 			return *this;
 		}
-		~tagged_value_t()
-		{
-			if(type)
-				value.str.std::string::~string();
-		}		
 	};
 	std::vector<tagged_value_t> value;
 };
@@ -96,6 +89,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 		{
 			m.redbuf->push_head(START);
 			rval = new lang_val{L_ARROW, {}};
+			std::cout << "L_ARROW" << std::endl;
 		}
 		break;
 		case L_CHAIN:
@@ -114,7 +108,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 		{
 			m.redbuf->push_head(((lang_val *)lval)->prec_token);
 			rval = new lang_val{L_OR, {}};
-			std::cout << "L_OR" << std::endl;
+			//std::cout << "L_OR" << std::endl;
 		}
 		break;
 		case IDENT:
@@ -123,16 +117,20 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			m.redbuf->push_head(((lang_val *)lval)->prec_token);
 			if((*m.buf)[0] == '\'')
 			{
-				for(int i=1; i < m.ret[0]-m.offset; i++ )
+				for(int i=1; i < m.ret[0]-m.offset+1; i++ )
 				{
 					if((*m.buf)[i] == '\'' )
+					{
+						m.ret[0]++;
 						goto end_fetch_str;
+					}
 					identstr += (*m.buf)[i];
 				}
 				for(char c; (c = m.is->get()) != '\''; )
 					identstr.push_back(c);
 				end_fetch_str:
 				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(identstr));
+				std::cout << "IDENT = '" << identstr << "'" << std::endl;
 			}
 			else
 			{
@@ -143,6 +141,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				if( ident_data == idents.end() )
 					exit(EXIT_FAILURE);
 				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(ident_data->second, ident_data->second));
+				std::cout << std::hex << "IDENT = 0x" << ident_data->second << std::endl; 
 			}
 		}
 		break;
@@ -154,6 +153,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			((lang_val *)lval)->value[0].value.r[0] =
 				( ((lang_val *)lval)->value[0].value.r[1] |=
 				((lang_val *)rval)->value[0].value.r[0] );
+			std::cout << std::hex << "OR = 0x" <<  ((lang_val *)lval)->value[0].value.r[0] << std::endl; 
 			delete (lang_val *)rval;
 		}
 		break;
@@ -163,6 +163,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			cast_ident((lang_val *)lval);
 			cast_ident((lang_val *)rval);
 			((lang_val *)lval)->value[0].value.r[1] = ((lang_val *)rval)->value[0].value.r[0];
+			std::cout << "COMMA" << std::endl;
 			delete (lang_val *)rval;
 		}
 		break;
@@ -171,6 +172,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			m.redbuf->push_head(START);
 			((lang_val *)lval)->value.push_back( ((lang_val *)rval)->value[0] );
 			delete (lang_val *)rval;
+			std::cout << "CHAIN" << std::endl;
 		}
 		break;
 		case ARROW:
