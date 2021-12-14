@@ -24,10 +24,49 @@ struct lang_val
 		int type;
 		union value_t
 		{
+			value_t() {}
 			std::string str;
 			int64_t r[2];
 			~value_t(){}
 		} value;
+		tagged_value_t(std::string _str )
+		{
+			type = 1;
+			value.str = _str;
+		}
+		tagged_value_t(uint64_t a, uint64_t b)
+		{
+			type = 0;
+			value.r[0] = a;
+			value.r[1] = b;
+		}
+		tagged_value_t(const tagged_value_t& val)
+		{
+			type = val.type;
+			if(val.type)
+				value.str = val.value.str;
+			else
+			{
+				value.r[0] = val.value.r[0];
+				value.r[1] = val.value.r[1];
+			}
+		}
+		tagged_value_t() : tagged_value_t(0,0)
+		{}
+		tagged_value_t& operator=(const lang_val::tagged_value_t& val)
+		{
+			if(type)
+				value.str.std::string::~string();
+			type = val.type;
+			if(val.type)
+				value.str = val.value.str;
+			else
+			{
+				value.r[0] = val.value.r[0];
+				value.r[1] = val.value.r[1];
+			}
+			return *this;
+		}
 		~tagged_value_t()
 		{
 			if(type)
@@ -36,6 +75,18 @@ struct lang_val
 	};
 	std::vector<tagged_value_t> value;
 };
+
+void cast_ident(lang_val *val)
+{
+	if( val->value[0].type )
+	{
+		uint64_t c = val->value[0].value.str[0];
+		val->value[0].~tagged_value_t();
+		val->value[0].value.r[0] =
+		val->value[0].value.r[1] = c;
+		val->value[0].type = 0;
+	}
+}
 
 void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
 {
@@ -81,7 +132,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				for(char c; (c = m.is->get()) != '\''; )
 					identstr.push_back(c);
 				end_fetch_str:
-				((lang_val *)lval)->value.push_back({0,{.str=identstr}});
+				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(identstr));
 			}
 			else
 			{
@@ -91,36 +142,28 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				auto ident_data = idents.find(identstr);
 				if( ident_data == idents.end() )
 					exit(EXIT_FAILURE);
-				((lang_val *)lval)->value.push_back({0,{.r={ident_data->second, ident_data->second}}});
+				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(ident_data->second, ident_data->second));
 			}
 		}
 		break;
 		case OR:
 		{
 			m.redbuf->push_head(((lang_val *)lval)->prec_token);
-			if( ((lang_val *)lval)->value[0].type )
-			{
-				((lang_val *)lval)->value[0].value.r[0] =
-					((lang_val *)lval)->value[0].value.r[1] =
-					((lang_val *)lval)->value[0].value.str[0];
-				((lang_val *)lval)->value[0].type = 0;
-			}
-			if( ((lang_val *)rval)->value[0].type )
-			{
-				((lang_val *)rval)->value[0].value.r[0] =
-					((lang_val *)rval)->value[0].value.r[1] =
-					((lang_val *)rval)->value[0].value.str[0];
-				((lang_val *)rval)->value[0].type = 0;
-			}
+			cast_ident((lang_val *)lval);
+			cast_ident((lang_val *)rval);
+			((lang_val *)lval)->value[0].value.r[0] =
+				( ((lang_val *)lval)->value[0].value.r[1] |=
+				((lang_val *)rval)->value[0].value.r[0] );
 			delete (lang_val *)rval;
 		}
 		break;
 		case COMMA:
 		{
 			m.redbuf->push_head(((lang_val *)lval)->prec_token);
-			((lang_val *)lval)->value[0] += "," + ((lang_val *)rval)->value[0];
+			cast_ident((lang_val *)lval);
+			cast_ident((lang_val *)rval);
+			((lang_val *)lval)->value[0].value.r[1] = ((lang_val *)rval)->value[0].value.r[0];
 			delete (lang_val *)rval;
-			std::cout << " result:" << ((lang_val *)lval)->value[0] << std::endl;
 		}
 		break;
 		case CHAIN:
@@ -128,19 +171,40 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			m.redbuf->push_head(START);
 			((lang_val *)lval)->value.push_back( ((lang_val *)rval)->value[0] );
 			delete (lang_val *)rval;
-			std::cout << " result:";
-			for(auto &str : ((lang_val *)lval)->value )
-				std::cout << ' ' << str;
-			std::cout << std::endl;
 		}
 		break;
 		case ARROW:
 		{
-			//m.redbuf->push_head(START);
-			std::cout << "result:";
-			for(auto &str : ((lang_val *)lval)->value )
-				std::cout << ' ' << str;
-			std::cout << " ->" << ((lang_val *)rval)->value[0] << std::endl;
+			//don't m.redbuf->push_head(START);
+			cast_ident((lang_val *)rval);
+			std::cout << "rrex_insert({";
+			for(int i=0; i < ((lang_val *)lval)->value.size()-1; i++ )
+			{
+				auto &e = ((lang_val *)lval)->value[i];
+				if( e.type )
+					for( auto c : e.value.str )
+						std::cout << "{'" << c << "','" << c << "},";
+				else
+					std::cout << "{0x" << std::hex << e.value.r[0] << ",0x" << e.value.r[1] << "},";
+			}
+			{
+				auto &e = ((lang_val *)lval)->value.back();
+				if( e.type )
+				{
+					for(int i=0; i < e.value.str.size()-1; i++ )
+					{
+						auto &c = e.value.str[i];
+						std::cout << "{'" << c << "','" << c << "},";
+					}
+					{
+						auto &c = e.value.str.back();
+						std::cout << "{'" << c << "','" << c << "}";
+					}
+				}
+				else
+					std::cout << "{0x" << std::hex << e.value.r[0] << ",0x" << e.value.r[1] << "}";
+			}
+			std::cout << "}, 0x" << std::hex << ((lang_val *)rval)->value[0].value.r[0] << " );";
 			delete (lang_val *)rval;
 			((lang_val *)lval)->value = {};
 		}
