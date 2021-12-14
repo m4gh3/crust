@@ -196,11 +196,11 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 					for(int i=0; i < e.value.str.size()-1; i++ )
 					{
 						auto &c = e.value.str[i];
-						std::cout << "{'" << c << "','" << c << "},";
+						std::cout << "{'" << c << "','" << c << "'},";
 					}
 					{
 						auto &c = e.value.str.back();
-						std::cout << "{'" << c << "','" << c << "}";
+						std::cout << "{'" << c << "','" << c << "'}";
 					}
 				}
 				else
