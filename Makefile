@@ -1,6 +1,6 @@
 CXXFLAGS=-g
 
-build/rrextab.o: src/rrextab.cpp
+build/rrextab.o: src/rrextab.cpp src/rrextab.hpp
 	g++ -c $(CXXFLAGS) src/rrextab.cpp -o build/rrextab.o
 
 build/include/mytokens.h: build/lib/libtokenames.so src/tokens.h.gen

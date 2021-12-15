@@ -5,6 +5,8 @@
 #include <map>
 #include <cstdint>
 
+#define GLOW_DEBUG 1
+
 struct rrex_key
 {
 	int64_t a,b;
@@ -28,6 +30,9 @@ struct rrex_key
 struct rrex_data
 {
 	int64_t reduce = -1;
+	#if GLOW_DEBUG
+		bool glow=false;
+	#endif
 	std::map<rrex_key, rrex_data > *next = nullptr;
 };
 

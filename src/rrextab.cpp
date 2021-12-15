@@ -21,7 +21,9 @@ int rrex_insert(std::vector<rrex_key> &rrex, int64_t reduce, bool glow )
 
 		if( i == rrex.size()-1 )
 			data.reduce = reduce;
-	
+		#if GLOW_DEBUG
+			data.glow |= glow;
+		#endif
 		next = &data.next;
 
 	}
@@ -76,6 +78,11 @@ void match(match_shared_t &m, rrex_tree *next, int idx )
 		{
 			if( it->first.a <= c && c <= it->first.b )
 			{
+				#if GLOW_DEBUG
+					if( it->second.glow )
+						std::cout << "\033[48;2;255;165;0mGLOW\033[0m" << std::endl;
+						//std::cout << "GLOW" << std::endl;
+				#endif
 				if( it->second.next != nullptr )
 				{
 					if( to_check == 1 && (it->second.reduce < 0) )

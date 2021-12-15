@@ -247,7 +247,7 @@ int main()
 	rrex_insert({{START,START}, {IDENT,CHAIN}, {'\t','\t'} }, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 
 	rrex_insert({{START,START}, {L_CHAIN,L_CHAIN}, {IDENT,COMMA}}, CHAIN | DO_CALLBACK );
-	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,OR}, {'\n','\n'}}, ARROW | DO_CALLBACK );
+	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,OR}, {'\n','\n'}}, ARROW | DO_CALLBACK, true );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
 	int64_t ret[3]={0,-1};
