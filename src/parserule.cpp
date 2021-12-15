@@ -89,7 +89,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 		{
 			m.redbuf->push_head(START);
 			rval = new lang_val{L_ARROW, {}};
-			std::cout << "L_ARROW" << std::endl;
+			//std::cout << "L_ARROW" << std::endl;
 		}
 		break;
 		case L_CHAIN:
@@ -130,7 +130,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 					identstr.push_back(c);
 				end_fetch_str:
 				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(identstr));
-				std::cout << "IDENT = '" << identstr << "'" << std::endl;
+				//std::cout << "IDENT = '" << identstr << "'" << std::endl;
 			}
 			else
 			{
@@ -141,7 +141,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				if( ident_data == idents.end() )
 					exit(EXIT_FAILURE);
 				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(ident_data->second, ident_data->second));
-				std::cout << std::hex << "IDENT = 0x" << ident_data->second << std::endl; 
+				//std::cout << std::hex << "IDENT = 0x" << ident_data->second << std::endl; 
 			}
 		}
 		break;
@@ -153,7 +153,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			((lang_val *)lval)->value[0].value.r[0] =
 				( ((lang_val *)lval)->value[0].value.r[1] |=
 				((lang_val *)rval)->value[0].value.r[0] );
-			std::cout << std::hex << "OR = 0x" <<  ((lang_val *)lval)->value[0].value.r[0] << std::endl; 
+			//std::cout << std::hex << "OR = 0x" <<  ((lang_val *)lval)->value[0].value.r[0] << std::endl; 
 			delete (lang_val *)rval;
 		}
 		break;
@@ -163,7 +163,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			cast_ident((lang_val *)lval);
 			cast_ident((lang_val *)rval);
 			((lang_val *)lval)->value[0].value.r[1] = ((lang_val *)rval)->value[0].value.r[0];
-			std::cout << "COMMA" << std::endl;
+			//std::cout << "COMMA" << std::endl;
 			delete (lang_val *)rval;
 		}
 		break;
@@ -172,7 +172,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 			m.redbuf->push_head(START);
 			((lang_val *)lval)->value.push_back( ((lang_val *)rval)->value[0] );
 			delete (lang_val *)rval;
-			std::cout << "CHAIN" << std::endl;
+			//std::cout << "CHAIN" << std::endl;
 		}
 		break;
 		case ARROW:
@@ -218,12 +218,12 @@ int main()
 {
 	rrex_insert({{START,ARROW}, {' ',' '}}, START );
 	rrex_insert({{START,ARROW}, {'\t','\t'}}, START );
-	rrex_insert({{L_OR,L_OR}, {' ',' '}}, L_OR );
-	rrex_insert({{L_OR,L_OR}, {'\t','\t'}}, L_OR );
-	rrex_insert({{L_COMMA,L_COMMA}, {' ',' '}}, L_COMMA );
-	rrex_insert({{L_COMMA,L_COMMA}, {'\t','\t'}}, L_COMMA );
-	rrex_insert({{L_ARROW,L_ARROW}, {' ',' '}}, L_ARROW );
-	rrex_insert({{L_ARROW,L_ARROW}, {'\t','\t'}}, L_ARROW );
+	rrex_insert({{L_OR | DO_CALLBACK | DO_RECURSION,L_OR | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_OR | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{L_OR | DO_CALLBACK | DO_RECURSION,L_OR | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_OR | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{L_COMMA | DO_CALLBACK | DO_RECURSION,L_COMMA | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_COMMA | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{L_COMMA | DO_CALLBACK | DO_RECURSION,L_COMMA | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_COMMA | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{L_ARROW | DO_CALLBACK | DO_RECURSION,L_ARROW | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_ARROW | DO_CALLBACK | DO_RECURSION );
+	rrex_insert({{L_ARROW | DO_CALLBACK | DO_RECURSION,L_ARROW | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_ARROW | DO_CALLBACK | DO_RECURSION );
 
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_CHAIN | DO_CALLBACK | DO_RECURSION, L_CHAIN | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_CHAIN | DO_CALLBACK | DO_RECURSION );
@@ -249,7 +249,7 @@ int main()
 	rrex_insert({{START,START}, {L_CHAIN,L_CHAIN}, {IDENT,COMMA}}, CHAIN | DO_CALLBACK );
 	rrex_insert({{START,START}, {L_ARROW,L_ARROW}, {IDENT,OR}, {'\n','\n'}}, ARROW | DO_CALLBACK, true );
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	std::cout << "START = " << START <<std::endl;
+	//std::cout << "START = " << START <<std::endl;
 	int64_t ret[3]={0,-1};
 	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
 	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{START, {}}, std::cin );
