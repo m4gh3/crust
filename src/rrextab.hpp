@@ -5,7 +5,7 @@
 #include <map>
 #include <cstdint>
 
-#define GLOW_DEBUG 1
+#define GLOW_DEBUG 0
 
 struct rrex_key
 {
