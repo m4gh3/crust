@@ -2,7 +2,7 @@
 #include <sstream>
 #include "../src/rrextab.hpp"
 
-//should be in global scope
+//shouldn't be in global scope
 std::map<std::string, int64_t> idents = {{"DO_RECURSION", DO_RECURSION}, {"DO_CALLBACK",DO_CALLBACK} };
 
 enum
