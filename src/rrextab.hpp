@@ -102,6 +102,7 @@ struct match_shared_t
 	struct circ_buf_t<char, 10 > *buf;
 	struct circ_buf_t<int64_t, 3 > *redbuf;
 	std::istream *is;
+	std::ostream *os;
 	int offset;
 };
 
@@ -111,5 +112,5 @@ const int64_t REDMASK=0x3fffffff;
 
 extern void lang_callbacks(int64_t, match_shared_t &, circ_buf_t<int64_t, 3 >&, void *&, void *& );
 extern void match(match_shared_t &m, rrex_tree *next, int idx=0 );
-extern void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, int idx=0 );
+extern void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, std::ostream &os, int idx=0 );
 

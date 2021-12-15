@@ -113,12 +113,12 @@ void match(match_shared_t &m, rrex_tree *next, int idx )
 }
 
 
-void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, int idx )
+void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_t<int64_t, 3 > &redbuf, void *lval, std::istream &is, std::ostream &os, int idx )
 {
 	void *rval = NULL;
 	int64_t last_good=-1;
 	circ_buf_t<int64_t, 3 > next_redbuf;
-	match_shared_t m{ret, root, &buf, &redbuf, &is };
+	match_shared_t m{ret, root, &buf, &redbuf, &is, &os };
 	while( true )
 	{
 		ret[0] = 0; ret[1] = -1;
@@ -137,7 +137,7 @@ void *match(rrex_tree *root, int64_t *ret, circ_buf_t<char, 10 > &buf, circ_buf_
 			if( last_good & DO_RECURSION )
 			{
 				next_redbuf.push_back(last_good & REDMASK);
-				rval = match(root, ret, buf, next_redbuf, rval, is );
+				rval = match(root, ret, buf, next_redbuf, rval, is, os );
 				redbuf.push_back(ret[1]);
 			}
 		}
