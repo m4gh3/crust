@@ -123,15 +123,13 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				for(int i=1; i < m.ret[0]-m.offset+1; i++ )
 				{
 					if((*m.buf)[i] == '\'' )
-					{
-						m.ret[0]++;
 						goto end_fetch_str;
-					}
 					identstr += (*m.buf)[i];
 				}
 				for(char c; (c = m.is->get()) != '\''; )
 					identstr.push_back(c);
 				end_fetch_str:
+				m.ret[0]++;
 				((lang_val *)lval)->value.push_back(lang_val::tagged_value_t(identstr));
 				//std::cout << "IDENT = '" << identstr << "'" << std::endl;
 			}
@@ -209,7 +207,7 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				else
 					std::cout << "{0x" << std::hex << e.value.r[0] << ",0x" << e.value.r[1] << "}";
 			}
-			std::cout << "}, 0x" << std::hex << ((lang_val *)rval)->value[0].value.r[0] << " );";
+			std::cout << "}, 0x" << std::hex << ((lang_val *)rval)->value[0].value.r[0] << " );" << std::endl;
 			delete (lang_val *)rval;
 			((lang_val *)lval)->value = {};
 		}
@@ -222,16 +220,25 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 {:cgnale.macro:token_names:}
 {
 
-	for(int i=2; i < args.size()-1; i++ )
+	for(int i=1; i < args.size()-1; i++ )
 	{
 		args[i].erase(std::remove_if(args[i].begin(), args[i].end(), [](char c){ return (c=='\n')||(c=='\t')|(c==' ');} ), args[i].end());
 		idents[args[i]] = 256+i;
 	}
 	args.back().erase(std::remove_if(args.back().begin(), args.back().end(), [](char c){ return (c=='\n')||(c=='\t')|(c==' ');} ), args.back().end());
 	idents[args.back()] = 256+args.size()-1;
-	
-	rrex_insert({{START,ARROW}, {' ',' '}}, START );
-	rrex_insert({{START,ARROW}, {'\t','\t'}}, START );
+
+	/*for(auto &e : idents )
+		std::cout << e.first << ':' << e.second << std::endl;*/
+
+	rrex_insert({{START,ARROW}, {' ',' '}}, START | DO_CALLBACK );
+	rrex_insert({{START,ARROW}, {'\t','\t'}}, START | DO_CALLBACK );
+	rrex_insert({{START,ARROW}, {'\n','\n'}}, START | DO_CALLBACK );
+	rrex_insert({{START | DO_CALLBACK,START | DO_CALLBACK}, {' ',' '}}, START | DO_CALLBACK );
+	rrex_insert({{START | DO_CALLBACK,START | DO_CALLBACK}, {'\t','\t'}}, START | DO_CALLBACK );
+	rrex_insert({{START | DO_CALLBACK,START | DO_CALLBACK}, {'\n','\n'}}, START | DO_CALLBACK );
+
+
 	rrex_insert({{L_OR | DO_CALLBACK | DO_RECURSION,L_OR | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_OR | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_OR | DO_CALLBACK | DO_RECURSION,L_OR | DO_CALLBACK | DO_RECURSION}, {'\t','\t'}}, L_OR | DO_CALLBACK | DO_RECURSION );
 	rrex_insert({{L_COMMA | DO_CALLBACK | DO_RECURSION,L_COMMA | DO_CALLBACK | DO_RECURSION}, {' ',' '}}, L_COMMA | DO_CALLBACK | DO_RECURSION );
