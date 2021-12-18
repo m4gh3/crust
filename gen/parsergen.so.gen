@@ -224,13 +224,19 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 	for(int i=1; i < args.size()-1; i++ )
 	{
 		args[i].erase(std::remove_if(args[i].begin(), args[i].end(), [](char c){ return (c=='\n')||(c=='\t')|(c==' ');} ), args[i].end());
-		idents[args[i]] = 256+i;
+		idents[args[i]] = 256+i-1;
 	}
 	args.back().erase(std::remove_if(args.back().begin(), args.back().end(), [](char c){ return (c=='\n')||(c=='\t')|(c==' ');} ), args.back().end());
 	idents[args.back()] = 256+args.size()-1;
 
 	/*for(auto &e : idents )
 		std::cout << e.first << ':' << e.second << std::endl;*/
+
+	ostr	<< "enum\n{\n"
+		<< '\t' << args[1] << " = 256,\n";
+	for(int i=2; i < args.size()-1; i++ )
+		ostr << '\t' << args[i] << ", \n";
+	ostr << '\t' << args.back() << "\n};";
 
 	rrex_insert({{START,ARROW}, {' ',' '}}, START | DO_CALLBACK );
 	rrex_insert({{START,ARROW}, {'\t','\t'}}, START | DO_CALLBACK );

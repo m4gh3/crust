@@ -1,0 +1,98 @@
+#include "rrextab.hpp"
+
+{:token_names:
+	START:
+	L_PAR:
+	L_SUM:
+	L_PROD:
+	NUM:
+	PAR:
+	PROD:
+	SUM
+:}
+
+struct lang_val
+{
+	int64_t prec_token;
+	int value;
+};
+
+
+void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
+{
+	switch(reduce)
+	{
+		case L_PAR:
+			{
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				rval = new lang_val{START, 0};
+			}
+			break;
+		case L_SUM:
+			{
+				m.redbuf->push_head(START);
+				rval = new lang_val{L_SUM, 0};
+			}
+			break;
+		case L_PROD:
+			{
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				rval = new lang_val{L_PROD, 0};
+			}
+			break;
+		case NUM:
+			{
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				((lang_val *)lval)->value = 0;
+				int *retval = &(((lang_val *)lval)->value);
+				for(int i=0; i < m.ret[0]-m.offset; i++ )
+					((*retval) *= 10)+=((*m.buf)[i]-'0');
+				std::cout << " result:" << (*retval) << std::endl;
+			}
+			break;
+		case PAR:
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				((lang_val *)lval)->value = ((lang_val *)rval)->value;
+
+			break;
+		case PROD:
+			{
+				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+				((lang_val *)lval)->value *= ((lang_val *)rval)->value;
+				delete (lang_val *)rval;
+				std::cout << " result:" << ((lang_val *)lval)->value;
+			}
+			break;
+		case SUM:
+			{
+				m.redbuf->push_head(START);
+				((lang_val *)lval)->value += ((lang_val *)rval)->value;
+				delete (lang_val *)rval;
+				std::cout << " result:" << ((lang_val *)lval)->value;
+			}
+			break;
+	}
+}
+
+int main()
+{
+	{:parser_rules:
+		START,L_PROD '0','9' ->	NUM|DO_CALLBACK
+		START,L_PROD  '(' ->  L_PAR|DO_CALLBACK|DO_RECURSION
+		START,L_PROD  L_PAR  NUM,SUM  ')'  ->  PAR|DO_CALLBACK
+		NUM|DO_CALLBACK  '0','9'  ->  NUM|DO_CALLBACK
+		START  NUM,SUM  '+'  ->  L_SUM|DO_CALLBACK|DO_RECURSION
+		START,L_SUM  '*'  ->  L_PROD|DO_CALLBACK|DO_RECURSION
+		START  L_SUM NUM,PROD  ->  SUM|DO_CALLBACK
+		START,L_SUM  L_PROD  NUM,PAR  -> PROD|DO_CALLBACK
+	:}
+	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
+	std::cout << "START = " << START <<std::endl;
+	int64_t ret[3]={0,-1};
+	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
+	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_val{START, 0}, std::cin, std::cout );
+	std::cout << std::endl;
+	return 0;
+}
+
+// vim:ft=cpp
