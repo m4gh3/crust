@@ -77,16 +77,6 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 
 int main()
 {
-	/*{::parser_rules:
-		START,L_PROD '0','9' ->	NUM|DO_CALLBACK
-		START,L_PROD  '(' ->  L_PAR|DO_CALLBACK|DO_RECURSION
-		START,L_PROD  L_PAR  NUM,SUM  ')'  ->  PAR|DO_CALLBACK
-		NUM|DO_CALLBACK  '0','9'  ->  NUM|DO_CALLBACK
-		START  NUM,SUM  '+'  ->  L_SUM|DO_CALLBACK|DO_RECURSION
-		START,L_SUM  '*'  ->  L_PROD|DO_CALLBACK|DO_RECURSION
-		START  L_SUM NUM,PROD  ->  SUM|DO_CALLBACK
-		START,L_SUM  L_PROD  NUM,PAR  -> PROD|DO_CALLBACK
-	:}*/
 	{:parser_rules:
 		START,L_PROD '0','9' -> NUM|DO_CALLBACK
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
