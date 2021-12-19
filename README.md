@@ -1,5 +1,5 @@
 # m4gpiler ( A marthon (or C, idk) compiler to URCL )
-For how it's just an example calculator there is still a lot of work to do. Further development will be done in the compilerattempt branch until 
+For how it's just an example calculator there is still a lot of work to do. Further development will be done in the `compilerattempt` branch until 
 something decent comes out of it
 
 ## Compiling
