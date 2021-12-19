@@ -1,0 +1,137 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FILE ::= BLOCK FILE
+FILE ::= ''
+
+BLOCK ::= priv BLOCK'
+BLOCK ::= BLOCK'
+BLOCK' ::= func id ( PARAMETER ) : ( DECL_TYPE id PARAMETER' ) { CODE }
+BLOCK' ::= proc id ( PARAMETER ) { CODE }
+BLOCK' ::= str id { STRUCT }
+BLOCK' ::= uni id { UNION }
+BLOCK' ::= enu id { ENUM }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+PARAMETER ::= DECL_TYPE  id PARAMETER'
+PARAMETER ::= ''
+PARAMETER' ::= , DECL_TYPE  id PARAMETER'
+PARAMETER' ::= ''
+
+SIGNATURE ::= DECL_TYPE SIGNATURE'
+SIGNATURE ::= ''
+SIGNATURE' ::= , DECL_TYPE SIGNATURE'
+SIGNATURE' ::= ''
+
+TYPE_MODIFIER ::= [ num ] TYPE_MODIFIER
+TYPE_MODIFIER ::= ref TYPE_MODIFIER
+TYPE_MODIFIER ::= ''
+
+DECL_TYPE ::= str id TYPE_MODIFIER
+DECL_TYPE ::= uni id TYPE_MODIFIER
+DECL_TYPE ::= DECL_TYPE'
+
+DECL_TYPE' ::= enu id TYPE_MODIFIER
+DECL_TYPE' ::= uval TYPE_MODIFIER
+DECL_TYPE' ::= sval TYPE_MODIFIER
+DECL_TYPE' ::= func ref TYPE_MODIFIER ( SIGNATURE ) : ( DECL_TYPE SIGNATURE' )
+DECL_TYPE' ::= proc ref TYPE_MODIFIER ( SIGNATURE )
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+CODE ::= STATEMENT ; CODE
+CODE ::= CONTROL CODE
+CODE ::= ''
+
+CODE_BLOCK ::= CONTROL'
+CODE_BLOCK ::= STATEMENT ;
+CODE_BLOCK ::= { CODE }
+
+CONTROL ::= if ( STATEMENT ) CODE_BLOCK ELSE
+CONTROL ::= CONTROL'
+CONTROL' ::= while ( STATEMENT ) CODE_BLOCK
+CONTROL' ::= until ( STATEMENT ) CODE_BLOCK
+CONTROL' ::= for ( STATEMENT ; STATEMENT ; STATEMENT ) CODE_BLOCK
+CONTROL' ::= switch ( STATEMENT ) { SWITCH_BLOCK }
+CONTROL' ::= break BREAK ;
+CONTROL' ::= skip ;
+
+ELSE ::= else ELSE'
+ELSE ::= ''
+ELSE' ::= if ( STATEMENT ) CODE_BLOCK ELSE
+ELSE' ::= CODE_BLOCK
+
+SWITCH_BLOCK ::= case SWITCH_CASE CODE_BLOCK SWITCH_BLOCK
+SWITCH_BLOCK ::= ''
+SWITCH_CASE ::= num : SWITCH_CASE'
+SWITCH_CASE ::= else : SWITCH_CASE'
+SWITCH_CASE' ::= :
+SWITCH_CASE' ::= ''
+
+BREAK ::= num
+BREAK ::= ''
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+STRUCT ::= STRUCT_TYPE ; STRUCT
+STRUCT ::=  ''
+
+UNION ::= STR_UNI_TYPE ; UNION
+UNION ::= ''
+
+ENUM ::= id ENUM_ASSIGN ENUM'
+ENUM' ::= , ENUM
+ENUM' ::= ''
+ENUM_ASSIGN ::= = num
+ENUM_ASSIGN ::= ''
+
+STRUCT_TYPE ::= STR_UNI_TYPE
+STRUCT_TYPE ::= self STRUCT_TYPE'
+STRUCT_TYPE' ::= func ref ( SIGNATURE ) : ( DECL_TYPE SIGNATURE' ) id = id
+STRUCT_TYPE' ::= proc ref ( SIGNATURE ) id = id
+
+STR_UNI_TYPE ::= DECL_TYPE' id
+STR_UNI_TYPE ::= str STR_UNI_TYPE_STRUCT
+STR_UNI_TYPE ::= uni STR_UNI_TYPE_UNION
+
+STR_UNI_TYPE_STRUCT ::= id STR_UNI_TYPE_STRUCT'
+STR_UNI_TYPE_STRUCT ::= { STRUCT }
+STR_UNI_TYPE_STRUCT' ::= ref TYPE_MODIFIER id
+STR_UNI_TYPE_STRUCT' ::= { STRUCT }
+STR_UNI_TYPE_STRUCT' ::= id
+
+STR_UNI_TYPE_UNION ::= id STR_UNI_TYPE_UNION'
+STR_UNI_TYPE_UNION ::= { UNION }
+STR_UNI_TYPE_UNION' ::= ref TYPE_MODIFIER id
+STR_UNI_TYPE_UNION' ::= { UNION }
+STR_UNI_TYPE_UNION' ::= id
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+STATEMENT ::= call x ( EXPRESSION_LIST ) CALL
+STATEMENT ::= EXPRESSION
+STATEMENT ::= DECLARATION
+
+CALL ::= : ( STORAGE STORAGE_LIST' )
+
+EXPRESSION_LIST ::= EXPRESSION EXPRESSION_LIST'
+EXPRESSION_LIST ::= ''
+EXPRESSION_LIST' ::= , EXPRESSION EXPRESSION_LIST'
+EXPRESSION_LIST' ::= ''
+STORAGE_LIST ::= STORAGE STORAGE_LIST'
+STORAGE_LIST ::= ''
+STORAGE_LIST' ::= , STORAGE STORAGE_LIST'
+STORAGE_LIST' ::= ''
+
+STORAGE ::= PREFIX STORAGE'
+STORAGE' ::= ( STORAGE ) SUFFIX MEMBER
+STORAGE' ::= a SUFFIX MEMBER
+MEMBER ::= . a SUFFIX MEMBER
+MEMBER ::= ''
+
+PREFIX ::= $ PREFIX
+PREFIX ::= ''
+SUFFIX ::= [ EXPRESSION ] SUFFIX
+SUFFIX ::= ''
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
