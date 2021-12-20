@@ -22,8 +22,10 @@
 	L_SEMICOLON:
 	L_SUM:
 	L_PROD:
+	L_UNARY_MINUS:
 	NUM:
 	PAR:
+	UNARY_MINUS:
 	PROD:
 	SUM:
 	SEMICOLON
@@ -62,6 +64,11 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 				rval = new lang_val{L_PROD, 0};
 			}
 			break;
+		case L_UNARY_MINUS:
+			{
+				rval = new lang_val{L_UNARY_MINUS, 0};
+			}
+			break;
 		case NUM:
 			{
 				((lang_val *)lval)->value = 0;
@@ -73,6 +80,12 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 		case PAR:
 			{
 				((lang_val *)lval)->value = ((lang_val *)rval)->value;
+			}
+			break;
+		case UNARY_MINUS:
+			{
+				((lang_val *)lval)->value = - ((lang_val *)rval)->value;
+				delete (lang_val *)rval;
 			}
 			break;
 		case PROD:
@@ -98,8 +111,11 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 int main()
 {
 	{:parser_rules:
-		START,L_PROD '0','9' -> NUM|DO_CALLBACK
+		START,L_UNARY_MINUS '0','9' -> NUM|DO_CALLBACK
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
+
+		START,L_PROD '-' -> L_UNARY_MINUS|DO_RECURSION|DO_CALLBACK
+		START,L_PROD L_UNARY_MINUS NUM,PAR -> UNARY_MINUS|DO_CALLBACK
 
 		START,L_PROD '(' -> L_PAR|DO_CALLBACK|DO_RECURSION
 		START,L_PROD L_PAR NUM,SEMICOLON ')' -> PAR|DO_CALLBACK
