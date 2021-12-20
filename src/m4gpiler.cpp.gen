@@ -19,12 +19,14 @@
 {:token_names:
 	START:
 	L_PAR:
+	L_SEMICOLON:
 	L_SUM:
 	L_PROD:
 	NUM:
 	PAR:
 	PROD:
-	SUM
+	SUM:
+	SEMICOLON
 :}
 
 struct lang_val
@@ -96,12 +98,15 @@ int main()
 	{:parser_rules:
 		START,L_PROD '0','9' -> NUM|DO_CALLBACK
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
+
 		START,L_PROD '(' -> L_PAR|DO_CALLBACK|DO_RECURSION
 		START,L_PROD L_PAR NUM,SUM ')' -> PAR|DO_CALLBACK
+
 		START NUM,SUM '+' -> L_SUM|DO_CALLBACK|DO_RECURSION
-		START L_SUM NUM -> SUM|DO_CALLBACK
+		START L_SUM NUM,PROD -> SUM|DO_CALLBACK
+
 		START,L_SUM NUM,PROD '*' -> L_PROD|DO_CALLBACK|DO_RECURSION
-		START L_PROD NUM,PAR -> PROD|DO_CALLBACK
+		START,L_SUM L_PROD NUM,PAR -> PROD|DO_CALLBACK
 	:}
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
