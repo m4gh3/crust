@@ -38,58 +38,60 @@ struct lang_val
 
 void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
 {
+	m.redbuf->push_head(((lang_val *)lval)->prec_token);
 	switch(reduce)
 	{
 		case L_PAR:
 			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				rval = new lang_val{START, 0};
+			}
+			break;
+		case L_SEMICOLON:
+			{
+				std::cout << ((lang_val *)lval)->value << std::endl;
+				rval = new lang_val{L_SEMICOLON, 0};
 			}
 			break;
 		case L_SUM:
 			{
-				m.redbuf->push_head(START);
 				rval = new lang_val{L_SUM, 0};
-				std::cout << "lsum" << std::endl;
 			}
 			break;
 		case L_PROD:
 			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				rval = new lang_val{L_PROD, 0};
 			}
 			break;
 		case NUM:
 			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				((lang_val *)lval)->value = 0;
 				int *retval = &(((lang_val *)lval)->value);
 				for(int i=0; i < m.ret[0]-m.offset; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
-				std::cout << " result:" << (*retval) << std::endl;
 			}
 			break;
 		case PAR:
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
+			{
 				((lang_val *)lval)->value = ((lang_val *)rval)->value;
-
+			}
 			break;
 		case PROD:
 			{
-				m.redbuf->push_head(((lang_val *)lval)->prec_token);
 				((lang_val *)lval)->value *= ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
-				std::cout << " result:" << ((lang_val *)lval)->value;
 			}
 			break;
 		case SUM:
 			{
-				m.redbuf->push_head(START);
 				((lang_val *)lval)->value += ((lang_val *)rval)->value;
 				delete (lang_val *)rval;
-				std::cout << " result:" << ((lang_val *)lval)->value;
 			}
 			break;
+		case SEMICOLON:
+			{
+				((lang_val *)lval)->value = ((lang_val *)rval)->value;
+				delete ((lang_val *)rval);
+			}
 	}
 }
 
@@ -100,10 +102,16 @@ int main()
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
 
 		START,L_PROD '(' -> L_PAR|DO_CALLBACK|DO_RECURSION
-		START,L_PROD L_PAR NUM,SUM ')' -> PAR|DO_CALLBACK
+		START,L_PROD L_PAR NUM,SEMICOLON ')' -> PAR|DO_CALLBACK
 
-		START NUM,SUM '+' -> L_SUM|DO_CALLBACK|DO_RECURSION
-		START L_SUM NUM,PROD -> SUM|DO_CALLBACK
+		START,L_PROD '{' -> L_PAR|DO_CALLBACK|DO_RECURSION
+		START,L_PROD L_PAR NUM,SEMICOLON '}' -> PAR|DO_CALLBACK
+
+		START NUM,SEMICOLON ';' -> L_SEMICOLON|DO_CALLBACK|DO_RECURSION
+		START L_SEMICOLON NUM,SUM -> SEMICOLON|DO_CALLBACK
+
+		START,L_SEMICOLON NUM,SUM '+' -> L_SUM|DO_CALLBACK|DO_RECURSION
+		START,L_SEMICOLON L_SUM NUM,PROD -> SUM|DO_CALLBACK
 
 		START,L_SUM NUM,PROD '*' -> L_PROD|DO_CALLBACK|DO_RECURSION
 		START,L_SUM L_PROD NUM,PAR -> PROD|DO_CALLBACK
