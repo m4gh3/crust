@@ -34,6 +34,7 @@
 struct lang_val
 {
 	int64_t prec_token;
+	//now we need to step up the game, it might be a good idea to output unoptimized code first
 	int value;
 };
 
