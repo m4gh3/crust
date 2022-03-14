@@ -12,26 +12,19 @@ class dyn_obj
 
 		enum class dyn_obj_type
 		{
-			LOCK,
 			OBJ,
 			DYN_PTR,
 			INT,
 			STR
-		} type;
+		} type;	
 
 		dyn_obj()
-		{ type = dyn_obj_type::LOCK; }
-	
-		void unlock_obj()
 		{
-			if( type == dyn_obj_type::LOCK )
-			{
-				value.obj.by_str = new std::unordered_map<std::string, dyn_obj >;
-				value.obj.by_num = new std::map<int, dyn_obj >;
-				type = dyn_obj_type::OBJ;
-			}
-		}	
-
+			value.obj.by_str = new std::unordered_map<std::string, dyn_obj >;
+			value.obj.by_num = new std::map<int, dyn_obj >;
+			type = dyn_obj_type::OBJ;
+		}
+		
 		dyn_obj(dyn_obj *p)
 		{
 			value.ptr = p;
@@ -73,8 +66,6 @@ class dyn_obj
 				case dyn_obj_type::STR:
 					value.str = dobj.value.str;
 					break;
-				case dyn_obj_type::LOCK:
-					break;
 			}
 			return *this;
 		}
@@ -91,10 +82,7 @@ class dyn_obj
 		~dyn_obj()
 		{
 			if( type == dyn_obj_type::OBJ )
-			{
 				delete value.obj.by_str;
-				delete value.obj.by_num;
-			}
 			if( type == dyn_obj_type::STR )
 				value.str.std::string::~string();
 		}
@@ -108,11 +96,9 @@ class dyn_obj
 		bool is_int()
 		{ return type == dyn_obj_type::INT; }
 
-		bool is_str()
-		{ return type == dyn_obj_type::STR; }
 
-		bool is_lock()
-		{ return type == dyn_obj_type::LOCK; }
+		bool is_str()
+		{ return type == dyn_obj_type::STR; }	
 
 		dyn_obj *get_ptr()
 		{
@@ -139,10 +125,10 @@ class dyn_obj
 		}
 	
 		dyn_obj &operator[](const std::string &key)
-		{ unlock_obj(); return (*value.obj.by_str)[key]; }
+		{ return (*value.obj.by_str)[key]; }
 
 		dyn_obj &operator[](const int key)
-		{ unlock_obj(); return (*value.obj.by_num)[key]; }
+		{ return (*value.obj.by_num)[key]; }
 
 	private:
 
