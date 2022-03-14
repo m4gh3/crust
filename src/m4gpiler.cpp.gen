@@ -35,42 +35,9 @@
 
 struct lang_val
 {
-	enum class var_storage_t
-	{
-		CONST,
-		STACK,
-		GLOBAL
-	};
-	union data
-	{
-		int val;
-	};
-	int usage = -1;
-	var_storage_t storage;
-};
-
-int reg_num = 8;
-std::map<std::string, struct lang_val > variables;
-std::vector<lang_var *> register_values;
-int last_reg_alloc_idx = 2;
-
-int get_reg(lang_val *ptr)
-{
-	for(int i=2; i < reg_num; i++ )
-	{
-		if( register_values == ptr )
-			return i;
-	}
-	if( last_alloc_idx++ == 8 )
-		last_alloc_idx = 2;
-	register_values[last_alloc_idx] = ptr;
-	return last_alloc_idx;
-}
-
-struct lang_val_prec
-{
 	int64_t prec_token;
-	lang_var *value;
+	//now we need to step up the game, it might be a good idea to output unoptimized code first
+	int value;
 };
 
 
@@ -178,9 +145,10 @@ int main()
 		START,L_SEMICOLON NUM,SUM '-' -> L_SUB|DO_CALLBACK|DO_RECURSION
 		START,L_SEMICOLON L_SUB NUM,PROD -> SUB|DO_CALLBACK
 
+
+
 		START,L_SUM NUM,PROD '*' -> L_PROD|DO_CALLBACK|DO_RECURSION
 		START,L_SUM L_PROD NUM,PAR -> PROD|DO_CALLBACK
-
 	:}
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
