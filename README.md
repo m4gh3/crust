@@ -1,4 +1,4 @@
-# m4gpiler ( A marthon (or C, idk) compiler to URCL )
+# Crust - a language between Rust and C
 For how it's just an example calculator there is still a lot of work to do. Further development will be done in the `compilerattempt` branch until 
 something decent comes out of it
 
@@ -14,7 +14,7 @@ You will also need g++ and make and it should be it, just type `make`
 
 ## How does the current example work?
 
-After you built the current m4gpiler run the command `./m4gpiler` in this repo directory.
+After you built the current crustc run the command `./crustc` in this repo directory.
 
 You can type expressions like `(1+2)*3+1+2` and it should display the result.
 
