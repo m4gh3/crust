@@ -35,18 +35,22 @@
 
 struct lang_val
 {
+	enum class var_storage_t
+	{
+		CONST,
+		STACK,
+		GLOBAL
+	};
 	union data
 	{
-		unsigned int uval, huval, hhuval;
-		signed int sval, hsval, hhsval;
-		unsigned ref;
+		int val;
 	};
 	int usage = -1;
 	var_storage_t storage;
 };
 
 int reg_num = 8;
-std::vector<std::map<std::string, struct lang_val >> variables;
+std::map<std::string, struct lang_val > variables;
 std::vector<lang_var *> register_values;
 int last_reg_alloc_idx = 2;
 
@@ -66,54 +70,49 @@ int get_reg(lang_val *ptr)
 struct lang_val_prec
 {
 	int64_t prec_token;
-	lang_val *value;
+	lang_var *value;
 };
 
 
 void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
-{
-	lang_callbacks(reduce, m, next_redbuf, *(lang_val_prec *) &lval, *(lang_val_prec *) &rval );
-}
-
-void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, lang_val_prec *&lval, lang_val_prec *&rval )
 {
 	m.redbuf->push_head(((lang_val *)lval)->prec_token);
 	switch(reduce)
 	{
 		case L_PAR:
 			{
-				rval = new lang_val_prec{START, NULL};
+				rval = new lang_val{START, 0};
 			}
 			break;
 		case L_SEMICOLON:
 			{
-				std::cout << lval->value << std::endl;
-				rval = new lang_val_prec{L_SEMICOLON, NULL};
+				std::cout << ((lang_val *)lval)->value << std::endl;
+				rval = new lang_val{L_SEMICOLON, 0};
 			}
 			break;
 		case L_SUM:
 			{
-				rval = new lang_val_prec{L_SUM, NULL};
+				rval = new lang_val{L_SUM, 0};
 			}
 			break;
 		case L_SUB:
 			{
-				rval = new lang_val_prec{L_SUB, NULL};
+				rval = new lang_val{L_SUB, 0};
 			}
 		case L_PROD:
 			{
-				rval = new lang_val_prec{L_PROD, NULL};
+				rval = new lang_val{L_PROD, 0};
 			}
 			break;
 		case L_UNARY_MINUS:
 			{
-				rval = new lang_val_prec{L_UNARY_MINUS, NULL};
+				rval = new lang_val{L_UNARY_MINUS, 0};
 			}
 			break;
 		case NUM:
 			{
-				lval->value = new lang_val{{0},-1,CONST};
-				int *retval = &(lval->value);
+				((lang_val *)lval)->value = 0;
+				int *retval = &(((lang_val *)lval)->value);
 				for(int i=0; i < m.ret[0]-m.offset; i++ )
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
 			}
