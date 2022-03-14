@@ -145,10 +145,8 @@ int main()
 		START,L_SEMICOLON NUM,SUM '-' -> L_SUB|DO_CALLBACK|DO_RECURSION
 		START,L_SEMICOLON L_SUB NUM,PROD -> SUB|DO_CALLBACK
 
-
-
 		START,L_SUM NUM,PROD '*' -> L_PROD|DO_CALLBACK|DO_RECURSION
-		START,L_SUM L_PROD NUM,PAR -> PROD|DO_CALLBACK
+		START,L_SUM L_PROD NUM,UNARY_MINUS -> PROD|DO_CALLBACK
 	:}
 	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
 	std::cout << "START = " << START <<std::endl;
