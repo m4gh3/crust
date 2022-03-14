@@ -1,7 +1,5 @@
 #include <string>
-
 #include <unordered_map>
-#include <map>
 
 #include <iostream>
 
@@ -20,8 +18,7 @@ class dyn_obj
 
 		dyn_obj()
 		{
-			value.obj.by_str = new std::unordered_map<std::string, dyn_obj >;
-			value.obj.by_num = new std::map<int, dyn_obj >;
+			value.members = new std::unordered_map<std::string, dyn_obj >;
 			type = dyn_obj_type::OBJ;
 		}
 		
@@ -51,11 +48,9 @@ class dyn_obj
 			{
 				case dyn_obj_type::OBJ:
 					//deep copy
-					value.obj.by_str = new std::unordered_map<std::string, dyn_obj >;
-					for( auto &pair : *dobj.value.obj.by_str )
-						(*value.obj.by_str)[pair.first] = pair.second;
-					for( auto &pair : *dobj.value.obj.by_num )
-						(*value.obj.by_num)[pair.first] = pair.second;
+					value.members = new std::unordered_map<std::string, dyn_obj >;
+					for( auto &pair : *dobj.value.members )
+						(*value.members)[pair.first] = pair.second;
 					break;
 				case dyn_obj_type::DYN_PTR:
 					value.ptr = dobj.value.ptr;
@@ -82,7 +77,7 @@ class dyn_obj
 		~dyn_obj()
 		{
 			if( type == dyn_obj_type::OBJ )
-				delete value.obj.by_str;
+				delete value.members;
 			if( type == dyn_obj_type::STR )
 				value.str.std::string::~string();
 		}
@@ -125,10 +120,7 @@ class dyn_obj
 		}
 	
 		dyn_obj &operator[](const std::string &key)
-		{ return (*value.obj.by_str)[key]; }
-
-		dyn_obj &operator[](const int key)
-		{ return (*value.obj.by_num)[key]; }
+		{ return (*value.members)[key]; }
 
 	private:
 
@@ -136,11 +128,7 @@ class dyn_obj
 		{
 			value_union() {}
 			~value_union(){}
-			struct
-			{
-				std::unordered_map<std::string, dyn_obj > *by_str;
-				std::map<int, dyn_obj > *by_num;
-			} obj;
+			std::unordered_map<std::string, dyn_obj > *members;
 			dyn_obj *ptr;
 			int i;
 			std::string str;
@@ -154,7 +142,6 @@ int main()
 	dyn_obj subobj; subobj = new dyn_obj;
 	(*subobj.get_ptr())["birth_year"] = 2000;
 	(*subobj.get_ptr())["continent"] = "Europe";
-	(*subobj.get_ptr())[0] = "Lol";
 	d["name"] = "m4gh3";
 	d["info"] = subobj;
 	std::cout << d["name"].get_str() << std::endl;
