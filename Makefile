@@ -15,7 +15,7 @@
 
 CXXFLAGS=-g
 
-m4ghpiler: build/src/m4gpiler.cpp build/rrextab.o src/rrextab.hpp
+m4ghpiler: build/src/m4gpiler.cpp build/rrextab.o src/rrextab.hpp build/lazyfied_ostream.o
 	g++ $(CXXFLAGS) build/src/m4gpiler.cpp build/rrextab.o -I src -o m4gpiler -g
 
 build/src/m4gpiler.cpp: src/m4gpiler.cpp.gen build/lib/libparsergen.so
@@ -27,6 +27,9 @@ build/lib/libparsergen.so: gen/parsergen.so.gen build/rrextab.o
 
 build/rrextab.o: src/rrextab.cpp src/rrextab.hpp
 	g++ -c -fPIC $(CXXFLAGS) src/rrextab.cpp -o build/rrextab.o
+
+build/lazyfied_ostream.o: src/lazyfied_ostream.cpp src/lazyfied_ostream.hpp
+	g++ -c $(CXXFLAGS) src/lazyfied_ostream.cpp -o build/lazyfied_ostream.o
 
 clean:
 	-rm build/lib/libparsergen.so

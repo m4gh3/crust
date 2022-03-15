@@ -15,6 +15,7 @@
 */
 
 #include "rrextab.hpp"
+#include "lazyfied_ostream.hpp"
 
 {:token_names:
 	START:
@@ -25,6 +26,7 @@
 	L_PROD:
 	L_UNARY_MINUS:
 	NUM:
+	IDENT:
 	PAR:
 	UNARY_MINUS:
 	PROD:
@@ -40,6 +42,7 @@ struct lang_val
 	int value;
 };
 
+std::vector<std::unordered_map<std::string, std::any >> scope_stack;
 
 void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
 {
@@ -84,6 +87,11 @@ void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &
 					((*retval) *= 10)+=((*m.buf)[i]-'0');
 			}
 			break;
+		case IDENT:
+			{
+				((lang_val *)lval)->value = 0;
+			}
+			break;
 		case PAR:
 			{
 				((lang_val *)lval)->value = ((lang_val *)rval)->value;
@@ -126,6 +134,14 @@ int main()
 	{:parser_rules:
 		START,L_UNARY_MINUS '0','9' -> NUM|DO_CALLBACK
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
+
+		START,L_UNARY_MINUS '_','_' -> IDENT|DO_CALLBACK
+		START,L_UNARY_MINUS 'a','z' -> IDENT|DO_CALLBACK
+		IDENT|DO_CALLBACK 'a','z' -> IDENT|DO_CALLBACK
+		START,L_UNARY_MINUS 'A','Z' -> IDENT|DO_CALLBACK
+		IDENT|DO_CALLBACK 'A','Z' -> IDENT|DO_CALLBACK
+		IDENT|DO_CALLBACK '0','9' -> IDENT|DO_CALLBACK
+		IDENT|DO_CALLBACK '_','_' -> IDENT|DO_CALLBACK
 
 		START,L_UNARY_MINUS '-' -> L_UNARY_MINUS|DO_RECURSION|DO_CALLBACK
 		START,L_UNARY_MINUS L_UNARY_MINUS NUM,UNARY_MINUS -> UNARY_MINUS|DO_CALLBACK
