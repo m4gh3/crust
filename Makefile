@@ -15,11 +15,11 @@
 
 CXXFLAGS=-g
 
-m4ghpiler: build/src/m4gpiler.cpp build/rrextab.o src/rrextab.hpp build/lazyfied_ostream.o
-	g++ $(CXXFLAGS) build/src/m4gpiler.cpp build/rrextab.o -I src -o m4gpiler -g
+crustc: build/src/crustc.cpp build/rrextab.o src/rrextab.hpp build/lazyfied_ostream.o
+	g++ $(CXXFLAGS) build/src/crustc.cpp build/rrextab.o -I src -o crustc -g
 
-build/src/m4gpiler.cpp: src/m4gpiler.cpp.gen build/lib/libparsergen.so
-	cgnale -l build/lib/libparsergen.so -c src/m4gpiler.cpp.gen > build/src/m4gpiler.cpp
+build/src/crustc.cpp: src/crustc.cpp.gen build/lib/libparsergen.so
+	cgnale -l build/lib/libparsergen.so -c src/crustc.cpp.gen > build/src/crustc.cpp
 
 build/lib/libparsergen.so: gen/parsergen.so.gen build/rrextab.o
 	cd gen; cgnalec dbg parsergen ../build/rrextab.o
@@ -34,6 +34,6 @@ build/lazyfied_ostream.o: src/lazyfied_ostream.cpp src/lazyfied_ostream.hpp
 clean:
 	-rm build/lib/libparsergen.so
 	-rm build/rrextab.o
-	-rm build/src/m4gpiler.cpp
-	-rm m4gpiler
+	-rm build/src/crustc.cpp
+	-rm crustc
 	
