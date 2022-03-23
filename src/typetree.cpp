@@ -1,23 +1,4 @@
-#include <unordered_map>
-#include <vector>
-#include <cstdint>
-#include <string>
-#include <iostream>
-
-enum TypeOps
-{
-	NONE,
-	PTR,
-	ARR,
-	CALL
-};
-
-struct TypeTree
-{
-	std::unordered_map<uintptr_t, TypeTree* > ops;
-	uintptr_t back_op = TypeOps::NONE;
-	TypeTree *parent = NULL;
-};
+#include "typetree.hpp"
 
 std::unordered_map<std::string, TypeTree > base_types;
 

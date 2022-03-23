@@ -16,6 +16,7 @@
 
 #include "rrextab.hpp"
 #include "lazyfied_ostream.hpp"
+#include "typetree.hpp"
 
 {:token_names:
 	START:
@@ -34,6 +35,13 @@
 	SUM:
 	SEMICOLON
 :}
+
+struct lang_value
+{
+    int64_t prec_token;
+    TypeTree *type;
+    std::any data;
+};
 
 struct lang_val
 {

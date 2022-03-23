@@ -15,8 +15,8 @@
 
 CXXFLAGS=-g
 
-crustc: build/src/crustc.cpp build/rrextab.o src/rrextab.hpp build/lazyfied_ostream.o
-	g++ $(CXXFLAGS) build/src/crustc.cpp build/rrextab.o -I src -o crustc -g
+crustc: build/src/crustc.cpp build/rrextab.o build/lazyfied_ostream.o build/typetree.o
+	g++ $(CXXFLAGS) build/src/crustc.cpp build/rrextab.o build/lazyfied_ostream.o build/typetree.o -I src -o crustc
 
 build/src/crustc.cpp: src/crustc.cpp.gen build/lib/libparsergen.so
 	cgnale -l build/lib/libparsergen.so -c src/crustc.cpp.gen > build/src/crustc.cpp
@@ -31,9 +31,11 @@ build/rrextab.o: src/rrextab.cpp src/rrextab.hpp
 build/lazyfied_ostream.o: src/lazyfied_ostream.cpp src/lazyfied_ostream.hpp
 	g++ -c $(CXXFLAGS) src/lazyfied_ostream.cpp -o build/lazyfied_ostream.o
 
+build/typetree.o: src/typetree.cpp src/typetree.hpp
+	g++ -c $(CXXFLAGS) src/typetree.cpp -o build/typetree.o
+
 clean:
 	-rm build/lib/libparsergen.so
 	-rm build/rrextab.o
 	-rm build/src/crustc.cpp
-	-rm crustc
-	
+	-rm crustc	
