@@ -17,7 +17,7 @@
 #include "rrextab.hpp"
 #include "lazyfied_ostream.hpp"
 #include "typetree.hpp"
-
+#include <fstream>
 
 {:token_names:
 	START:
@@ -39,107 +39,134 @@
 
 struct lang_value
 {
-    int64_t prec_token;
-    TypeTree *type;
-    std::any data;
+	int64_t prec_token;
+	TypeTree *type;
+
+	//Storage Type
+	enum SType_t
+	{
+		NONE,
+		LOCAL,
+		LVAL,
+		RVAL,
+		CONST
+	};
+
+	SType_t stype;
+
+	std::any data;
 };
 
-inline int to_int(void *l)
-{ return std::any_cast<int>(((lang_value*)l)->data); }
+inline int data_to_int(lang_value *l)
+{ return std::any_cast<int>(l->data); }
 
-inline std::any &get_data(void *l)
-{ return ((lang_value *)l)->data; }
+/*inline std::any &get_data(void *l)
+{ return ((lang_value *)l)->data; }*/
 
 std::vector<std::unordered_map<std::string, std::any >> scope_stack;
 TypeTree *type_int;
 
-void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&lval, void *&rval )
+void lang_callbacks(int64_t reduce, match_shared_t &m, circ_buf_t<int64_t, 3 > &next_redbuf, void *&_lval, void *&_rval )
 {
+
+	lang_value *&lval = *(lang_value **)&_lval;
+	lang_value *&rval = *(lang_value **)&_rval;
+
 	m.redbuf->push_head(((lang_value *)lval)->prec_token);
 	switch(reduce)
 	{
 		case L_PAR:
 			{
-				rval = new lang_value{START, type_int, 0};
+				rval = new lang_value{START, type_int, lang_value::NONE, 0};
 			}
 			break;
 		case L_SEMICOLON:
 			{
-				std::cout << to_int(lval) << std::endl;
-				rval = new lang_value{L_SEMICOLON, type_int, 0};
+				(*m.os) << data_to_int(lval) << std::endl;
+				rval = new lang_value{L_SEMICOLON, type_int, lang_value::NONE, 0};
 			}
 			break;
 		case L_SUM:
 			{
-				rval = new lang_value{L_SUM, type_int, 0};
+				rval = new lang_value{L_SUM, type_int, lang_value::NONE, 0};
 			}
 			break;
 		case L_SUB:
 			{
-				rval = new lang_value{L_SUB, type_int, 0};
+				rval = new lang_value{L_SUB, type_int, lang_value::NONE, 0};
 			}
 		case L_PROD:
 			{
-				rval = new lang_value{L_PROD, type_int, 0};
+				rval = new lang_value{L_PROD, type_int, lang_value::NONE, 0};
 			}
 			break;
 		case L_UNARY_MINUS:
 			{
-				rval = new lang_value{L_UNARY_MINUS, type_int, 0};
+				rval = new lang_value{L_UNARY_MINUS, type_int, lang_value::NONE, 0};
 			}
 			break;
 		case NUM:
 			{
-				get_data(lval) = 0;
-				//int &retval = get_data(lval);
+				lval->data = 0;
 				for(int i=0; i < m.ret[0]-m.offset; i++ )
-					get_data(lval) = to_int(lval)*10 + ((*m.buf)[i]-'0');
+					lval->data = data_to_int(lval)*10 + ((*m.buf)[i]-'0');
 			}
 			break;
 		case IDENT:
 			{
-				get_data(lval) = 0;
+				/*std::string ident;
+				for(int i=0; i < m.ret[0]-m.offset; i++ )
+					ident.push_back((*m.buf)[i]);*/
+				//lval->data = ident;
+				lval->data = 0;	
 			}
 			break;
 		case PAR:
 			{
-				get_data(lval) = to_int(rval);
+				lval->data = data_to_int(rval);
+				lval->stype = lang_value::RVAL;
 			}
 			break;
 		case UNARY_MINUS:
 			{
-				get_data(lval) = to_int(lval) - to_int(rval);
+				lval->data = data_to_int(lval) - data_to_int(rval);
+				lval->stype = lang_value::RVAL;
 				delete (lang_value *)rval;
 			}
 			break;
 		case PROD:
 			{
-				get_data(lval) = to_int(lval) * to_int(rval);
+				lval->data = data_to_int(lval) * data_to_int(rval);
+				lval->stype = lang_value::RVAL;
 				delete (lang_value *)rval;
 			}
 			break;
 		case SUB:
 			{
-				get_data(lval) = to_int(lval) - to_int(rval);
+				lval->data = data_to_int(lval) - data_to_int(rval);
+				lval->stype = lang_value::RVAL;
 				delete (lang_value *)rval;
 			}
 			break;
 		case SUM:
 			{
-				get_data(lval) = to_int(lval) + to_int(rval);
+				lval->data = data_to_int(lval) + data_to_int(rval);
+				lval->stype = lang_value::RVAL;
 				delete (lang_value *)rval;
 			}
 			break;
 		case SEMICOLON:
 			{
-				get_data(lval) = to_int(rval);
+				rval->prec_token = lval->prec_token;
+				(*lval) = (*rval); //can't you just copy the value?
 				delete ((lang_value *)rval);
 			}
 	}
 }
 
-int main()
+int main(int argc, char **argv )
 {
+
 	{:parser_rules:
 		START,L_UNARY_MINUS '0','9' -> NUM|DO_CALLBACK
 		NUM|DO_CALLBACK '0','9' -> NUM|DO_CALLBACK
@@ -173,14 +200,47 @@ int main()
 		START,L_SUM NUM,PROD '*' -> L_PROD|DO_CALLBACK|DO_RECURSION
 		START,L_SUM L_PROD NUM,UNARY_MINUS -> PROD|DO_CALLBACK
 	:}
+
 	type_int = &base_types["int"];
-	std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
-	std::cout << "START = " << START <<std::endl;
+
+	//std::cout << "rrex_tree sz:" << rrex_tree_size(rrex_main_tree_ptr) << std::endl;
+	//std::cout << "START = " << START <<std::endl;
+
 	int64_t ret[3]={0,-1};
 	circ_buf_t<int64_t, 3 > redbuf; redbuf.push_head(START);
-	match(rrex_main_tree_ptr, ret, matchbuf, redbuf, new lang_value{START, 0}, std::cin, std::cout );
-	std::cout << std::endl;
+
+	if( argc < 3 )
+	{
+		match
+		(
+				rrex_main_tree_ptr,
+				ret,
+				matchbuf,
+				redbuf,
+				new lang_value{START, 0},
+				std::cin,
+				std::cout
+		);
+	}
+	else
+	{
+		std::ifstream ifile(argv[1], std::ifstream::in );
+		std::ofstream ofile(argv[2], std::ofstream::out );
+		match
+		(
+				rrex_main_tree_ptr,
+				ret,
+				matchbuf,
+				redbuf,
+				new lang_value{START, 0},
+				ifile,
+				ofile
+		);
+	}
+
+	//std::cout << std::endl;
 	return 0;
+
 }
 
 // vim:ft=cpp
